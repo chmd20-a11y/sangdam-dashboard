@@ -190,7 +190,8 @@ async function renderDashboard(m){
     const stats=await loadPromoStats(); const dist=await loadPromoBranchStats();
     promoBlock = promoStatsTable(stats,dist,true);
   }
-  el("dashBody").outerHTML = `<div id="dashBody">${kpis}${panels}${isAdmin?sectionTitle("최근 상담","최근 입력된 상담 이력")+recent:""}${promoBlock}</div>`;
+  const repPerf = sectionTitle("영업자별 실적","영업담당자별 상담·계약 현황") + repPerformanceTable(rows);
+  el("dashBody").outerHTML = `<div id="dashBody">${kpis}${panels}${repPerf}${isAdmin?sectionTitle("최근 상담","최근 입력된 상담 이력")+recent:""}${promoBlock}</div>`;
   wireRecentActions();
 }
 
@@ -224,7 +225,8 @@ async function renderConsultations(m){
   const canPickBranch = S.profile.role==="admin";
   m.innerHTML = `<div class="page-head"><h1>상담 목록</h1>
     <div class="tools">
-      <input id="q" class="chip" placeholder="고객명·연락처·지역 검색" style="min-width:200px">
+      <input id="q" class="chip" placeholder="고객명·연락처·지역·담당자 검색" style="min-width:200px">
+      <select id="fRep" class="chip"><option value="">전체 담당자</option></select>
       <select id="fStage" class="chip"><option value="">전체 단계</option>${STAGES.map(s=>`<option>${s}</option>`).join("")}</select>
       <button class="btn" id="backupCsv">⬇ 엑셀 백업</button>
       <button class="btn green" id="addCons">+ 새 상담</button>
@@ -232,22 +234,26 @@ async function renderConsultations(m){
     <div id="consBody" class="empty">불러오는 중…</div>`;
   await loadPromotions();
   CONS_CACHE = await loadConsultations();
+  const reps=[...new Set(CONS_CACHE.map(r=>r.rep_name).filter(Boolean))].sort();
+  el("fRep").innerHTML = `<option value="">전체 담당자</option>` + reps.map(n=>`<option>${esc(n)}</option>`).join("");
   el("addCons").onclick=()=>openConsultForm(null);
   el("backupCsv").onclick=exportConsultationsCSV;
-  el("q").oninput=drawConsTable; el("fStage").onchange=drawConsTable;
+  el("q").oninput=drawConsTable; el("fStage").onchange=drawConsTable; el("fRep").onchange=drawConsTable;
   drawConsTable();
 }
 function drawConsTable(){
-  const q=(el("q").value||"").trim().toLowerCase(), fs=el("fStage").value;
+  const q=(el("q").value||"").trim().toLowerCase(), fs=el("fStage").value, fr=el("fRep").value;
   let rows=CONS_CACHE.filter(r=>{
     if(fs && r.stage!==fs) return false;
-    if(q){ const s=`${r.customer_name} ${r.phone||""} ${r.region||""}`.toLowerCase(); if(!s.includes(q)) return false; }
+    if(fr && (r.rep_name||"")!==fr) return false;
+    if(q){ const s=`${r.customer_name} ${r.phone||""} ${r.region||""} ${r.rep_name||""}`.toLowerCase(); if(!s.includes(q)) return false; }
     return true;
   });
   const isAdmin=S.profile.role==="admin";
-  const head=`<thead><tr><th>고객명</th><th>연락처</th><th>지역</th><th>주소</th><th>유입경로(홍보)</th><th>진행단계</th><th>실행이익률</th>${isAdmin?"<th>지사</th>":""}<th>상담일</th><th>다음예정</th><th></th></tr></thead>`;
+  const head=`<thead><tr><th>고객명</th><th>영업담당자</th><th>연락처</th><th>지역</th><th>주소</th><th>유입경로(홍보)</th><th>진행단계</th><th>실행이익률</th>${isAdmin?"<th>지사</th>":""}<th>상담일</th><th>다음예정</th><th></th></tr></thead>`;
   const body = rows.length? rows.map(r=>`<tr>
       <td class="cust" data-label="고객명">${esc(r.customer_name)}</td>
+      <td data-label="영업담당자">${esc(r.rep_name||"-")}</td>
       <td data-label="연락처">${esc(r.phone||"-")}</td>
       <td data-label="지역">${esc(r.region||"-")}</td>
       <td data-label="주소">${esc(r.address||"-")}</td>
@@ -260,7 +266,7 @@ function drawConsTable(){
       <td class="row-actions" style="white-space:nowrap">
         <button data-edit="${r.id}">수정</button>
         <button class="del" data-del="${r.id}">삭제</button></td>
-    </tr>`).join("") : `<tr><td colspan="12" class="empty">표시할 상담이 없습니다. [+ 새 상담]으로 기록을 추가하세요.</td></tr>`;
+    </tr>`).join("") : `<tr><td colspan="13" class="empty">표시할 상담이 없습니다. [+ 새 상담]으로 기록을 추가하세요.</td></tr>`;
   el("consBody").innerHTML = `<div class="card-table mobilecards"><table>${head}<tbody>${body}</tbody></table></div>`;
   el("consBody").querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>{
     const row=CONS_CACHE.find(x=>String(x.id)===b.dataset.edit); openConsultForm(row);
@@ -274,9 +280,12 @@ function openConsultForm(row){
     S.promotions.map(p=>`<option value="${p.id}" ${row&&row.promotion_id===p.id?"selected":""}>${esc(p.title)}</option>`).join("");
   const branchOpts = S.branches.map(b=>`<option value="${b.id}" ${ (row?row.branch_id:S.profile.branch_id)===b.id?"selected":""}>${esc(b.name)}</option>`).join("");
   const typeOpts = ["","주택","축사","공장","토지","지붕","햇빛소득마을","영농형태양광","마을태양광","기타"].map(t=>`<option ${row&&row.customer_type===t?"selected":""}>${t}</option>`).join("");
-  openModal(`${isNew?"새 상담 기록":"상담 수정"}`, `
+  const repNames = [...new Set((CONS_CACHE||[]).map(r=>r.rep_name).filter(Boolean))].sort();
+  const repList = `<datalist id="repList">${repNames.map(n=>`<option value="${esc(n)}"></option>`).join("")}</datalist>`;
+  openModal(`${isNew?"새 상담 기록":"상담 수정"}`, `${repList}
     <div class="form-grid">
       <div><label class="req">고객명</label><input id="f_name" class="input" value="${row?esc(row.customer_name):""}"></div>
+      <div><label>영업담당자</label><input id="f_rep" class="input" list="repList" value="${row?esc(row.rep_name||""):""}" placeholder="담당 영업자 이름"></div>
       <div><label>연락처</label><input id="f_phone" class="input" value="${row?esc(row.phone||""):""}" placeholder="010-0000-0000"></div>
       <div><label>지역</label><input id="f_region" class="input" value="${row?esc(row.region||""):""}" placeholder="전남 장흥군"></div>
       <div><label>고객 유형</label><select id="f_type" class="input">${typeOpts}</select></div>
@@ -295,7 +304,7 @@ function openConsultForm(row){
       if(!name){ toast("고객명을 입력하세요"); return false; }
       const payload={
         customer_name:name, phone:val("f_phone"), region:val("f_region"),
-        address:val("f_addr")||null, note:val("f_note")||null,
+        address:val("f_addr")||null, note:val("f_note")||null, rep_name:val("f_rep")||null,
         profit_rate: el("f_profit").value!==""? Number(el("f_profit").value):null,
         customer_type:val("f_type")||null, promotion_id: el("f_promo").value? Number(el("f_promo").value):null,
         consult_date:el("f_date").value, content:val("f_content"), stage:el("f_stage").value,
@@ -322,7 +331,7 @@ function exportConsultationsCSV(){
   const rows = CONS_CACHE || [];
   if(!rows.length){ toast("백업할 상담이 없습니다"); return; }
   const cols = [
-    ["상담일", r=>r.consult_date], ["고객명", r=>r.customer_name], ["연락처", r=>r.phone],
+    ["상담일", r=>r.consult_date], ["고객명", r=>r.customer_name], ["영업담당자", r=>r.rep_name], ["연락처", r=>r.phone],
     ["지역", r=>r.region], ["주소", r=>r.address], ["고객유형", r=>r.customer_type],
     ["유입경로(홍보)", r=> r.promotions? r.promotions.title : ""],
     ["진행단계", r=>r.stage], ["실행이익률(%)", r=>r.profit_rate], ["다음예정일", r=>r.next_date],
@@ -422,12 +431,37 @@ function sectionTitle(t,d,cls){ return `<div class="sec-title ${cls||""}"><h3>${
 function recentTable(rows){
   const isAdmin=S.profile.role==="admin";
   const body=rows.length? rows.map(r=>`<tr>
-      <td class="cust" data-label="고객명">${esc(r.customer_name)}</td><td data-label="지역">${esc(r.region||"-")}</td>
+      <td class="cust" data-label="고객명">${esc(r.customer_name)}</td><td data-label="영업담당자">${esc(r.rep_name||"-")}</td><td data-label="지역">${esc(r.region||"-")}</td>
       <td data-label="유입경로">${esc(r.promotions?r.promotions.title:"-")}</td><td data-label="진행단계">${stagePill(r.stage)}</td>
       ${isAdmin?`<td data-label="담당지사"><span class="badge">${esc(branchName(r.branch_id))}</span></td>`:""}
       <td data-label="상담일">${esc(r.consult_date||"")}</td></tr>`).join("")
-    : `<tr><td colspan="6" class="empty">상담 기록이 없습니다.</td></tr>`;
-  return `<div class="card-table mobilecards"><table><thead><tr><th>고객명</th><th>지역</th><th>유입경로(홍보)</th><th>진행단계</th>${isAdmin?"<th>담당지사</th>":""}<th>상담일</th></tr></thead><tbody>${body}</tbody></table></div>`;
+    : `<tr><td colspan="7" class="empty">상담 기록이 없습니다.</td></tr>`;
+  return `<div class="card-table mobilecards"><table><thead><tr><th>고객명</th><th>영업담당자</th><th>지역</th><th>유입경로(홍보)</th><th>진행단계</th>${isAdmin?"<th>담당지사</th>":""}<th>상담일</th></tr></thead><tbody>${body}</tbody></table></div>`;
+}
+function repPerformanceTable(rows){
+  const isAdmin=S.profile.role==="admin";
+  const map={};
+  rows.forEach(r=>{
+    const rep=r.rep_name||"(미지정)";
+    const key=isAdmin? branchName(r.branch_id)+" · "+rep : rep;
+    const m=map[key]||(map[key]={label:key,n:0,ing:0,deal:0,ps:0,pc:0});
+    m.n++;
+    if(["상담중","견적"].includes(r.stage)) m.ing++;
+    if(r.stage==="계약") m.deal++;
+    if(r.profit_rate!=null){ m.ps+=Number(r.profit_rate); m.pc++; }
+  });
+  const list=Object.values(map).sort((a,b)=>b.n-a.n || b.deal-a.deal);
+  const body=list.length? list.map(m=>`<tr>
+      <td class="cust" data-label="영업담당자">${esc(m.label)}</td>
+      <td data-label="상담">${m.n}</td>
+      <td data-label="진행중">${m.ing}</td>
+      <td data-label="계약">${m.deal}</td>
+      <td class="rate" data-label="전환율">${m.n? (m.deal/m.n*100).toFixed(1):"0.0"}%</td>
+      <td data-label="평균 실행이익률">${m.pc? (m.ps/m.pc).toFixed(1)+"%" : "-"}</td>
+    </tr>`).join("") : `<tr><td colspan="6" class="empty">상담 기록이 없습니다. 상담 입력 시 '영업담당자'를 적어주세요.</td></tr>`;
+  return `<div class="card-table mobilecards"><table>
+    <thead><tr><th>영업담당자</th><th>상담</th><th>진행중</th><th>계약</th><th>전환율</th><th>평균 실행이익률</th></tr></thead>
+    <tbody>${body}</tbody></table></div>`;
 }
 function wireRecentActions(){}
 

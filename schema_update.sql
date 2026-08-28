@@ -5,5 +5,6 @@
 alter table public.consultations add column if not exists address     text;     -- 주소
 alter table public.consultations add column if not exists note        text;     -- 특이사항
 alter table public.consultations add column if not exists profit_rate numeric;  -- 실행이익률(%)
+alter table public.consultations add column if not exists rep_name    text;     -- 영업담당자
 
 -- 완료. (Success. No rows returned 이 뜨면 정상)
