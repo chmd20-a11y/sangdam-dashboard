@@ -54,6 +54,10 @@ node seed_users.mjs
 
 > 이메일 도메인을 바꾸려면 `DOMAIN="회사도메인.com"` 을 명령 앞에 추가하세요.
 
+> **로그인 아이디**: 사용자는 이메일 대신 **지사 이름**으로 로그인합니다 — `관리자` / `본사` / `장흥` / `영암` / `평택` / `파주` / `영상팀`. (내부적으로 위 이메일에 매핑 — `app.js`의 `LOGIN_MAP`)
+
+> **컬럼 추가(주소·특이사항)**: 최초 설치 후 기능 업데이트로 `schema_update.sql` 을 SQL Editor에 한 번 실행하세요.
+
 ### 4) 접속값 연결
 - `config.js` 를 열어 `SUPABASE_URL` 과 `SUPABASE_ANON_KEY` 두 값을 채웁니다.
   (service_role 키는 여기 넣지 않습니다!)

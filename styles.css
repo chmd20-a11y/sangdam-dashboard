@@ -27,6 +27,7 @@ a{color:inherit}
 .login-side .logo{display:flex;align-items:center;gap:12px;margin-bottom:26px}
 .login-side .sun{width:34px;height:34px;border-radius:50%;background:var(--orange);flex:0 0 auto}
 .login-side .logo b{font-size:24px;letter-spacing:.5px}
+.login-side .companies{color:#cfe6d2;font-size:13.5px;font-weight:600;margin:0 0 22px;letter-spacing:.2px}
 .login-side h2{font-size:22px;margin:0 0 6px;line-height:1.35}
 .login-side h2 span{color:#c8e0cb}
 .login-side ul{list-style:none;padding:0;margin:20px 0 0;color:#d2e6d5;font-size:13.5px}
@@ -46,14 +47,21 @@ a{color:inherit}
 .btn-primary:hover{background:#164a1a}
 .btn-primary:disabled{opacity:.55;cursor:default}
 .login-note{color:var(--gray);font-size:12.5px;margin-top:16px}
+.login-note b{color:var(--green2)}
 .login-err{color:#c0392b;font-size:13px;margin-top:14px;min-height:18px}
+.manual-link{display:inline-block;margin-top:18px;color:var(--green2);font-weight:700;font-size:13.5px;text-decoration:none;border-bottom:1px dashed var(--green2);padding-bottom:1px}
+.manual-link:hover{color:var(--green)}
 
 /* ---------- 앱 셸 ---------- */
 .app{display:none;min-height:100vh;flex-direction:column}
 .topbar{height:60px;background:var(--green);color:#fff;display:flex;align-items:center;
   padding:0 18px;position:sticky;top:0;z-index:30}
-.topbar .brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:18px}
-.topbar .brand .sun{width:22px;height:22px;border-radius:50%;background:var(--orange)}
+.topbar .brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:18px;min-width:0}
+.topbar .brand .sun{width:22px;height:22px;border-radius:50%;background:var(--orange);flex:0 0 auto}
+.topbar .brand-txt{display:flex;flex-direction:column;line-height:1.15;font-size:15px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.topbar .brand-txt small{font-size:11px;font-weight:500;color:#cfe6d2}
+.sidebar .manual-side{display:flex;align-items:center;gap:10px;margin-top:16px;padding:12px 14px;border-top:1px solid var(--line);color:var(--green2);font-weight:700;font-size:14px;text-decoration:none}
+.sidebar .manual-side:hover{background:#e9efe9;border-radius:10px}
 .topbar .spacer{flex:1}
 .topbar .who{font-size:14px;color:#dcefdf}
 .topbar .who b{color:#fff}
@@ -166,6 +174,8 @@ textarea.input{resize:vertical;min-height:70px}
 }
 @media (max-width:720px){
   .topbar .hamburger{display:block}
+  .topbar .brand-txt{font-size:11.5px}
+  .topbar .who{display:none}
   .sidebar{position:fixed;left:0;top:60px;bottom:0;z-index:25;transform:translateX(-105%);
     transition:transform .2s;box-shadow:2px 0 12px rgba(0,0,0,.1)}
   .sidebar.open{transform:none}

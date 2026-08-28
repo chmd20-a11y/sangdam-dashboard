@@ -22,6 +22,23 @@ const STAGES = ["신규","상담중","견적","계약","보류","종결"];
 const STAGE_COLOR = {신규:"#2176ae",상담중:"#e67e22",견적:"#7860c8",계약:"#2e7d32",보류:"#9aa2a4",종결:"#6e7678"};
 const CHANNELS = ["유튜브","네이버","인스타","블로그","지역광고","지인소개","기타"];
 
+// 기억하기 쉬운 아이디(지사 이름) → 실제 로그인 이메일 매핑
+const LOGIN_DOMAIN = "example.com";
+const LOGIN_MAP = {
+  "관리자":"admin", "admin":"admin", "본사":"hq", "본사(광주)":"hq", "광주":"hq", "hq":"hq",
+  "장흥":"jangheung", "jangheung":"jangheung",
+  "영암":"yeongam", "yeongam":"yeongam",
+  "평택":"pyeongtaek", "pyeongtaek":"pyeongtaek",
+  "파주":"paju", "paju":"paju",
+  "영상팀":"video", "영상":"video", "video":"video",
+};
+function resolveLoginEmail(raw){
+  const v = (raw||"").trim();
+  if(v.includes("@")) return v;                 // 이메일 그대로 입력 시
+  const key = LOGIN_MAP[v] || LOGIN_MAP[v.toLowerCase()];
+  return key ? `${key}@${LOGIN_DOMAIN}` : v;
+}
+
 // ---- DOM ----
 const $ = (s)=>document.querySelector(s);
 const el = (id)=>document.getElementById(id);
@@ -47,7 +64,7 @@ function showLoginError(msg){ el("loginErr").textContent = msg||""; }
 async function doLogin(e){
   e.preventDefault();
   if(!CONFIGURED){ showLoginError("아직 서버(Supabase) 접속 정보가 설정되지 않았습니다. config.js를 확인하세요."); return; }
-  const email=el("email").value.trim(), password=el("password").value;
+  const email=resolveLoginEmail(el("email").value), password=el("password").value;
   const btn=el("loginBtn"); btn.disabled=true; btn.textContent="로그인 중…"; showLoginError("");
   const { data, error } = await sb.auth.signInWithPassword({ email, password });
   btn.disabled=false; btn.textContent="로그인";
@@ -90,7 +107,7 @@ function defaultPage(){ return "dashboard"; }
 function renderNav(){
   el("sidebar").innerHTML = menuByRole().map(([key,label])=>
     `<button class="nav-item ${key===S.page?"active":""}" data-page="${key}"><span class="ic"></span>${label}</button>`
-  ).join("");
+  ).join("") + `<a class="manual-side" href="manual.html" target="_blank">📖 사용 안내</a>`;
   el("sidebar").querySelectorAll(".nav-item").forEach(b=>b.onclick=()=>{ go(b.dataset.page); el("sidebar").classList.remove("open"); });
 }
 function go(page){ S.page=page; renderNav(); render(); }
@@ -205,12 +222,14 @@ async function renderConsultations(m){
     <div class="tools">
       <input id="q" class="chip" placeholder="고객명·연락처·지역 검색" style="min-width:200px">
       <select id="fStage" class="chip"><option value="">전체 단계</option>${STAGES.map(s=>`<option>${s}</option>`).join("")}</select>
+      <button class="btn" id="backupCsv">⬇ 엑셀 백업</button>
       <button class="btn green" id="addCons">+ 새 상담</button>
     </div></div>
     <div id="consBody" class="empty">불러오는 중…</div>`;
   await loadPromotions();
   CONS_CACHE = await loadConsultations();
   el("addCons").onclick=()=>openConsultForm(null);
+  el("backupCsv").onclick=exportConsultationsCSV;
   el("q").oninput=drawConsTable; el("fStage").onchange=drawConsTable;
   drawConsTable();
 }
@@ -222,11 +241,12 @@ function drawConsTable(){
     return true;
   });
   const isAdmin=S.profile.role==="admin";
-  const head=`<thead><tr><th>고객명</th><th>연락처</th><th>지역</th><th>유입경로(홍보)</th><th>진행단계</th>${isAdmin?"<th>지사</th>":""}<th>상담일</th><th>다음예정</th><th></th></tr></thead>`;
+  const head=`<thead><tr><th>고객명</th><th>연락처</th><th>지역</th><th>주소</th><th>유입경로(홍보)</th><th>진행단계</th>${isAdmin?"<th>지사</th>":""}<th>상담일</th><th>다음예정</th><th></th></tr></thead>`;
   const body = rows.length? rows.map(r=>`<tr>
       <td class="cust">${esc(r.customer_name)}</td>
       <td>${esc(r.phone||"-")}</td>
       <td>${esc(r.region||"-")}</td>
+      <td>${esc(r.address||"-")}</td>
       <td>${esc(r.promotions? r.promotions.title : "-")}</td>
       <td>${stagePill(r.stage)}</td>
       ${isAdmin?`<td><span class="badge">${esc(branchName(r.branch_id))}</span></td>`:""}
@@ -235,7 +255,7 @@ function drawConsTable(){
       <td class="row-actions" style="white-space:nowrap">
         <button data-edit="${r.id}">수정</button>
         <button class="del" data-del="${r.id}">삭제</button></td>
-    </tr>`).join("") : `<tr><td colspan="9" class="empty">표시할 상담이 없습니다. [+ 새 상담]으로 기록을 추가하세요.</td></tr>`;
+    </tr>`).join("") : `<tr><td colspan="11" class="empty">표시할 상담이 없습니다. [+ 새 상담]으로 기록을 추가하세요.</td></tr>`;
   el("consBody").innerHTML = `<div class="card-table"><table>${head}<tbody>${body}</tbody></table></div>`;
   el("consBody").querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>{
     const row=CONS_CACHE.find(x=>String(x.id)===b.dataset.edit); openConsultForm(row);
@@ -255,10 +275,12 @@ function openConsultForm(row){
       <div><label>연락처</label><input id="f_phone" class="input" value="${row?esc(row.phone||""):""}" placeholder="010-0000-0000"></div>
       <div><label>지역</label><input id="f_region" class="input" value="${row?esc(row.region||""):""}" placeholder="전남 장흥군"></div>
       <div><label>고객 유형</label><select id="f_type" class="input">${typeOpts}</select></div>
+      <div class="full"><label>주소</label><input id="f_addr" class="input" value="${row?esc(row.address||""):""}" placeholder="상세 주소 (예: 전남 장흥군 ○○면 ○○리 123-4)"></div>
       <div class="full"><label>유입경로 (어떤 홍보를 보고 왔는지)</label><select id="f_promo" class="input">${promoOpts}</select></div>
       <div><label class="req">상담일</label><input id="f_date" type="date" class="input" value="${row?esc(row.consult_date):new Date().toISOString().slice(0,10)}"></div>
       <div><label class="req">진행 단계</label><select id="f_stage" class="input">${STAGES.map(s=>`<option ${ (row?row.stage:"신규")===s?"selected":""}>${s}</option>`).join("")}</select></div>
       <div class="full"><label>상담 내용</label><textarea id="f_content" class="input" placeholder="상담한 내용을 짧게 메모">${row?esc(row.content||""):""}</textarea></div>
+      <div class="full"><label>특이사항</label><textarea id="f_note" class="input" placeholder="특이사항·요청사항·주의점 등">${row?esc(row.note||""):""}</textarea></div>
       <div><label>다음 예정일</label><input id="f_next" type="date" class="input" value="${row&&row.next_date?esc(row.next_date):""}"></div>
       ${isAdmin?`<div><label>담당 지사</label><select id="f_branch" class="input">${branchOpts}</select></div>`:""}
     </div>`,
@@ -267,6 +289,7 @@ function openConsultForm(row){
       if(!name){ toast("고객명을 입력하세요"); return false; }
       const payload={
         customer_name:name, phone:val("f_phone"), region:val("f_region"),
+        address:val("f_addr")||null, note:val("f_note")||null,
         customer_type:val("f_type")||null, promotion_id: el("f_promo").value? Number(el("f_promo").value):null,
         consult_date:el("f_date").value, content:val("f_content"), stage:el("f_stage").value,
         next_date: el("f_next").value||null,
@@ -285,6 +308,34 @@ async function delConsult(id){
   const { error }=await sb.from("consultations").delete().eq("id",id);
   if(error){ toast("삭제 실패"); return; }
   toast("삭제되었습니다"); CONS_CACHE=await loadConsultations(); drawConsTable();
+}
+
+// ---------- 오프라인 백업 (엑셀에서 열리는 CSV 다운로드) ----------
+function exportConsultationsCSV(){
+  const rows = CONS_CACHE || [];
+  if(!rows.length){ toast("백업할 상담이 없습니다"); return; }
+  const cols = [
+    ["상담일", r=>r.consult_date], ["고객명", r=>r.customer_name], ["연락처", r=>r.phone],
+    ["지역", r=>r.region], ["주소", r=>r.address], ["고객유형", r=>r.customer_type],
+    ["유입경로(홍보)", r=> r.promotions? r.promotions.title : ""],
+    ["진행단계", r=>r.stage], ["다음예정일", r=>r.next_date],
+    ["담당지사", r=> branchName(r.branch_id)],
+    ["상담내용", r=>r.content], ["특이사항", r=>r.note],
+    ["등록일시", r=> (r.created_at||"").replace("T"," ").slice(0,16)],
+  ];
+  const cell = v => `"${String(v==null?"":v).replace(/"/g,'""')}"`;
+  const csv = "﻿" + [                                   // BOM → 엑셀에서 한글 안 깨짐
+    cols.map(c=>cell(c[0])).join(","),
+    ...rows.map(r=>cols.map(c=>cell(c[1](r))).join(",")),
+  ].join("\r\n");
+  const d=new Date(), pad=n=>String(n).padStart(2,"0");
+  const fname=`상담일지_백업_${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}.csv`;
+  const blob=new Blob([csv],{type:"text/csv;charset=utf-8;"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob); a.download=fname;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+  toast(`${rows.length}건 백업 파일을 내려받았습니다`);
 }
 
 /* ---------- 홍보 관리 ---------- */
