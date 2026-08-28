@@ -107,9 +107,13 @@ function defaultPage(){ return "dashboard"; }
 function renderNav(){
   el("sidebar").innerHTML = menuByRole().map(([key,label])=>
     `<button class="nav-item ${key===S.page?"active":""}" data-page="${key}"><span class="ic"></span>${label}</button>`
-  ).join("") + `<a class="manual-side" href="manual.html" target="_blank">📖 사용 안내</a>`;
-  el("sidebar").querySelectorAll(".nav-item").forEach(b=>b.onclick=()=>{ go(b.dataset.page); el("sidebar").classList.remove("open"); });
+  ).join("")
+    + `<a class="manual-side" href="manual.html" target="_blank">📖 사용 안내</a>`
+    + `<a class="manual-side" href="install.html" target="_blank">📱 홈 화면에 추가</a>`;
+  el("sidebar").querySelectorAll(".nav-item").forEach(b=>b.onclick=()=>{ go(b.dataset.page); closeNav(); });
 }
+function toggleNav(){ const open=el("sidebar").classList.toggle("open"); el("navBackdrop").classList.toggle("show",open); }
+function closeNav(){ el("sidebar").classList.remove("open"); el("navBackdrop").classList.remove("show"); }
 function go(page){ S.page=page; renderNav(); render(); }
 
 /* ============================================================
@@ -243,21 +247,21 @@ function drawConsTable(){
   const isAdmin=S.profile.role==="admin";
   const head=`<thead><tr><th>고객명</th><th>연락처</th><th>지역</th><th>주소</th><th>유입경로(홍보)</th><th>진행단계</th><th>실행이익률</th>${isAdmin?"<th>지사</th>":""}<th>상담일</th><th>다음예정</th><th></th></tr></thead>`;
   const body = rows.length? rows.map(r=>`<tr>
-      <td class="cust">${esc(r.customer_name)}</td>
-      <td>${esc(r.phone||"-")}</td>
-      <td>${esc(r.region||"-")}</td>
-      <td>${esc(r.address||"-")}</td>
-      <td>${esc(r.promotions? r.promotions.title : "-")}</td>
-      <td>${stagePill(r.stage)}</td>
-      <td>${r.profit_rate!=null? esc(r.profit_rate)+"%" : "-"}</td>
-      ${isAdmin?`<td><span class="badge">${esc(branchName(r.branch_id))}</span></td>`:""}
-      <td>${esc(r.consult_date||"")}</td>
-      <td>${esc(r.next_date||"-")}</td>
+      <td class="cust" data-label="고객명">${esc(r.customer_name)}</td>
+      <td data-label="연락처">${esc(r.phone||"-")}</td>
+      <td data-label="지역">${esc(r.region||"-")}</td>
+      <td data-label="주소">${esc(r.address||"-")}</td>
+      <td data-label="유입경로">${esc(r.promotions? r.promotions.title : "-")}</td>
+      <td data-label="진행단계">${stagePill(r.stage)}</td>
+      <td data-label="실행이익률">${r.profit_rate!=null? esc(r.profit_rate)+"%" : "-"}</td>
+      ${isAdmin?`<td data-label="지사"><span class="badge">${esc(branchName(r.branch_id))}</span></td>`:""}
+      <td data-label="상담일">${esc(r.consult_date||"")}</td>
+      <td data-label="다음예정">${esc(r.next_date||"-")}</td>
       <td class="row-actions" style="white-space:nowrap">
         <button data-edit="${r.id}">수정</button>
         <button class="del" data-del="${r.id}">삭제</button></td>
     </tr>`).join("") : `<tr><td colspan="12" class="empty">표시할 상담이 없습니다. [+ 새 상담]으로 기록을 추가하세요.</td></tr>`;
-  el("consBody").innerHTML = `<div class="card-table"><table>${head}<tbody>${body}</tbody></table></div>`;
+  el("consBody").innerHTML = `<div class="card-table mobilecards"><table>${head}<tbody>${body}</tbody></table></div>`;
   el("consBody").querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>{
     const row=CONS_CACHE.find(x=>String(x.id)===b.dataset.edit); openConsultForm(row);
   });
@@ -353,13 +357,13 @@ async function renderPromotions(m){
 function drawPromoTable(){
   const rows=S.promotions;
   const body=rows.length? rows.map(p=>`<tr>
-      <td class="cust">${esc(p.title)}</td>
-      <td>${esc(p.channel||"-")}</td>
-      <td>${esc(p.posted_date||"-")}</td>
-      <td><span class="pill" style="background:${p.status==="진행중"?tint("#2e7d32"):"#eee"};color:${p.status==="진행중"?"#2e7d32":"#888"}">${esc(p.status)}</span></td>
+      <td class="cust" data-label="홍보 제목">${esc(p.title)}</td>
+      <td data-label="채널">${esc(p.channel||"-")}</td>
+      <td data-label="게시일">${esc(p.posted_date||"-")}</td>
+      <td data-label="상태"><span class="pill" style="background:${p.status==="진행중"?tint("#2e7d32"):"#eee"};color:${p.status==="진행중"?"#2e7d32":"#888"}">${esc(p.status)}</span></td>
       <td class="row-actions"><button data-edit="${p.id}">수정</button></td>
     </tr>`).join("") : `<tr><td colspan="5" class="empty">등록된 홍보가 없습니다. [+ 새 홍보 등록]으로 추가하세요.</td></tr>`;
-  el("promoBody").innerHTML=`<div class="card-table"><table>
+  el("promoBody").innerHTML=`<div class="card-table mobilecards"><table>
     <thead><tr><th>홍보 제목</th><th>채널</th><th>게시일</th><th>상태</th><th></th></tr></thead>
     <tbody>${body}</tbody></table></div>`;
   el("promoBody").querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>openPromoForm(S.promotions.find(x=>String(x.id)===b.dataset.edit)));
@@ -396,14 +400,14 @@ async function renderPromoStats(m){
 function promoStatsTable(stats,dist,withTitle){
   const head = withTitle? sectionTitle("영상팀 홍보 성과 피드백","홍보별 문의·계약 자동 집계","orange") : "";
   const body = stats.length? stats.map(s=>`<tr>
-      <td class="cust">${esc(s.title)}</td>
-      <td>${esc(s.channel||"-")}</td>
-      <td>${s.inquiry_count}</td>
-      <td>${s.contract_count}</td>
-      <td class="rate">${s.conversion_rate==null?"0.0":s.conversion_rate}%</td>
-      <td>${esc((dist[s.promotion_id]||[]).join("·")||"-")}</td>
+      <td class="cust" data-label="홍보 건">${esc(s.title)}</td>
+      <td data-label="채널">${esc(s.channel||"-")}</td>
+      <td data-label="문의">${s.inquiry_count}</td>
+      <td data-label="계약">${s.contract_count}</td>
+      <td class="rate" data-label="전환율">${s.conversion_rate==null?"0.0":s.conversion_rate}%</td>
+      <td data-label="지사 분포">${esc((dist[s.promotion_id]||[]).join("·")||"-")}</td>
     </tr>`).join("") : `<tr><td colspan="6" class="empty">등록된 홍보가 없습니다. '홍보 관리'에서 홍보를 먼저 등록하세요.</td></tr>`;
-  return `${head}<div class="card-table"><table class="orange-head">
+  return `${head}<div class="card-table mobilecards"><table class="orange-head">
     <thead><tr><th>홍보 건</th><th>채널</th><th>문의</th><th>계약</th><th>전환율</th><th>지사 분포</th></tr></thead>
     <tbody>${body}</tbody></table></div>`;
 }
@@ -418,12 +422,12 @@ function sectionTitle(t,d,cls){ return `<div class="sec-title ${cls||""}"><h3>${
 function recentTable(rows){
   const isAdmin=S.profile.role==="admin";
   const body=rows.length? rows.map(r=>`<tr>
-      <td class="cust">${esc(r.customer_name)}</td><td>${esc(r.region||"-")}</td>
-      <td>${esc(r.promotions?r.promotions.title:"-")}</td><td>${stagePill(r.stage)}</td>
-      ${isAdmin?`<td><span class="badge">${esc(branchName(r.branch_id))}</span></td>`:""}
-      <td>${esc(r.consult_date||"")}</td></tr>`).join("")
+      <td class="cust" data-label="고객명">${esc(r.customer_name)}</td><td data-label="지역">${esc(r.region||"-")}</td>
+      <td data-label="유입경로">${esc(r.promotions?r.promotions.title:"-")}</td><td data-label="진행단계">${stagePill(r.stage)}</td>
+      ${isAdmin?`<td data-label="담당지사"><span class="badge">${esc(branchName(r.branch_id))}</span></td>`:""}
+      <td data-label="상담일">${esc(r.consult_date||"")}</td></tr>`).join("")
     : `<tr><td colspan="6" class="empty">상담 기록이 없습니다.</td></tr>`;
-  return `<div class="card-table"><table><thead><tr><th>고객명</th><th>지역</th><th>유입경로(홍보)</th><th>진행단계</th>${isAdmin?"<th>담당지사</th>":""}<th>상담일</th></tr></thead><tbody>${body}</tbody></table></div>`;
+  return `<div class="card-table mobilecards"><table><thead><tr><th>고객명</th><th>지역</th><th>유입경로(홍보)</th><th>진행단계</th>${isAdmin?"<th>담당지사</th>":""}<th>상담일</th></tr></thead><tbody>${body}</tbody></table></div>`;
 }
 function wireRecentActions(){}
 
@@ -461,7 +465,8 @@ function onDataChange(){ clearTimeout(rtTimer); rtTimer=setTimeout(()=>{ render(
 function boot(){
   el("loginForm").addEventListener("submit", doLogin);
   el("logoutBtn").addEventListener("click", doLogout);
-  el("hamburger").addEventListener("click", ()=>el("sidebar").classList.toggle("open"));
+  el("hamburger").addEventListener("click", toggleNav);
+  el("navBackdrop").addEventListener("click", closeNav);
   if(!CONFIGURED){
     const err=el("loginErr");
     err.innerHTML="⚙️ 서버 접속 정보가 아직 설정되지 않았습니다. (config.js 입력 후 사용 가능)";
