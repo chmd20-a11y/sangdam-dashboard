@@ -323,7 +323,7 @@ function openConsultForm(row){
       <div><label class="req">진행 단계</label><select id="f_stage" class="input">${STAGES.map(s=>`<option ${ (row?row.stage:"신규")===s?"selected":""}>${s}</option>`).join("")}</select></div>
       <div class="full"><label>상담 내용</label><textarea id="f_content" class="input" placeholder="상담한 내용을 짧게 메모">${row?esc(row.content||""):""}</textarea></div>
       <div class="full"><label>특이사항</label><textarea id="f_note" class="input" placeholder="특이사항·요청사항·주의점 등">${row?esc(row.note||""):""}</textarea></div>
-      <div><label>예상 매출액 (원)</label><input id="f_revenue" type="number" min="0" step="10000" class="input" value="${row&&row.revenue!=null?esc(row.revenue):""}" placeholder="예: 30000000"></div>
+      <div><label>예상 매출액 (원)</label><input id="f_revenue" type="text" inputmode="numeric" class="input" value="${row&&row.revenue!=null? Number(row.revenue).toLocaleString("ko-KR") : ""}" placeholder="예: 30,000,000"></div>
       <div><label>실행이익률 (%)</label><input id="f_profit" type="number" step="0.1" min="0" class="input" value="${row&&row.profit_rate!=null?esc(row.profit_rate):""}" placeholder="예: 12.5"></div>
       <div><label>다음 예정일</label><input id="f_next" type="date" class="input" value="${row&&row.next_date?esc(row.next_date):""}"></div>
       ${isAdmin?`<div><label>담당 지사</label><select id="f_branch" class="input">${branchOpts}</select></div>`:""}
@@ -334,7 +334,7 @@ function openConsultForm(row){
       const payload={
         customer_name:name, phone:val("f_phone"), region:val("f_region"),
         address:val("f_addr")||null, note:val("f_note")||null, rep_name:val("f_rep")||null,
-        revenue: el("f_revenue").value!==""? Number(el("f_revenue").value):null,
+        revenue: numFromComma("f_revenue"),
         profit_rate: el("f_profit").value!==""? Number(el("f_profit").value):null,
         customer_type:val("f_type")||null, promotion_id: el("f_promo").value? Number(el("f_promo").value):null,
         consult_date:el("f_date").value, content:val("f_content"), stage:el("f_stage").value,
@@ -348,6 +348,7 @@ function openConsultForm(row){
       toast(isNew?"상담이 등록되었습니다":"수정되었습니다");
       CONS_CACHE=await loadConsultations(); drawConsTable(); return true;
     });
+  commaInput("f_revenue");
 }
 // ---------- 상담 상세보기 (읽기 전용 → 수정/삭제/닫기) ----------
 function openConsultDetail(row){
@@ -629,6 +630,19 @@ function wonShort(n){
 function wireRecentActions(){}
 
 function val(id){ const e=el(id); return e? e.value.trim():""; }
+
+// 숫자 입력칸에 천단위 콤마 자동표시
+function commaInput(id){
+  const e=el(id); if(!e) return;
+  e.addEventListener("input", ()=>{
+    const before=e.value.length, pos=e.selectionStart||0;
+    const d=e.value.replace(/[^\d]/g,"");
+    e.value = d ? Number(d).toLocaleString("ko-KR") : "";
+    const diff=e.value.length-before;
+    const np=Math.max(0,pos+diff); try{ e.setSelectionRange(np,np); }catch(_){}
+  });
+}
+function numFromComma(id){ const e=el(id); if(!e) return null; const d=e.value.replace(/[^\d]/g,""); return d!==""? Number(d):null; }
 
 /* ---------- 모달 ---------- */
 function openModal(title, inner, onSave){
