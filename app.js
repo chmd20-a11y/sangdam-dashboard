@@ -268,7 +268,7 @@ function openConsultForm(row){
   const promoOpts = `<option value="">— 선택 안 함 —</option>` +
     S.promotions.map(p=>`<option value="${p.id}" ${row&&row.promotion_id===p.id?"selected":""}>${esc(p.title)}</option>`).join("");
   const branchOpts = S.branches.map(b=>`<option value="${b.id}" ${ (row?row.branch_id:S.profile.branch_id)===b.id?"selected":""}>${esc(b.name)}</option>`).join("");
-  const typeOpts = ["","주택","축사","공장","토지","지붕","기타"].map(t=>`<option ${row&&row.customer_type===t?"selected":""}>${t}</option>`).join("");
+  const typeOpts = ["","주택","축사","공장","토지","지붕","햇빛소득마을","영농형태양광","마을태양광","기타"].map(t=>`<option ${row&&row.customer_type===t?"selected":""}>${t}</option>`).join("");
   openModal(`${isNew?"새 상담 기록":"상담 수정"}`, `
     <div class="form-grid">
       <div><label class="req">고객명</label><input id="f_name" class="input" value="${row?esc(row.customer_name):""}"></div>
