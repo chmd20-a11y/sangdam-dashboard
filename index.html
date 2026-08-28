@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>태양광 영업 상담일지</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- ========== 로그인 ========== -->
+<div id="login" class="login-wrap">
+  <div class="login-card">
+    <div class="login-side">
+      <div class="logo"><span class="sun"></span><b>SOLAR</b></div>
+      <h2>영업 상담일지<br><span>통합 대시보드</span></h2>
+      <ul>
+        <li>전 지사 상담 기록을 한 곳에서 관리</li>
+        <li>지사장·관리자 실시간 확인</li>
+        <li>영상팀 홍보 성과 피드백 연결</li>
+      </ul>
+      <div class="branches">본사(광주) · 장흥 · 영암 · 평택 · 파주</div>
+    </div>
+    <form class="login-form" id="loginForm">
+      <h1>로그인</h1>
+      <p class="sub">계정 정보를 입력하세요</p>
+      <div class="field">
+        <label>아이디 (이메일)</label>
+        <input id="email" type="email" autocomplete="username" placeholder="지사 또는 관리자 계정" required>
+      </div>
+      <div class="field">
+        <label>비밀번호</label>
+        <input id="password" type="password" autocomplete="current-password" placeholder="••••••••" required>
+      </div>
+      <button class="btn-primary" id="loginBtn" type="submit">로그인</button>
+      <div class="login-err" id="loginErr"></div>
+      <p class="login-note">지사 계정으로 로그인하면 해당 지사 상담만 표시됩니다.</p>
+    </form>
+  </div>
+</div>
+
+<!-- ========== 앱 ========== -->
+<div id="app" class="app">
+  <header class="topbar">
+    <button class="hamburger" id="hamburger">☰</button>
+    <div class="brand"><span class="sun"></span>SOLAR 상담일지</div>
+    <div class="spacer"></div>
+    <div class="who" id="who"></div>
+    <button class="logout" id="logoutBtn">로그아웃</button>
+  </header>
+  <div class="body">
+    <nav class="sidebar" id="sidebar"></nav>
+    <main class="main" id="main"></main>
+  </div>
+</div>
+
+<div id="modalRoot"></div>
+<div id="toast" class="toast"></div>
+
+<!-- 설정 미완료 안내 (config.js 미입력 시) -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
