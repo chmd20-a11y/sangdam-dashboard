@@ -231,6 +231,7 @@ async function renderConsultations(m){
       <button class="btn" id="backupCsv">⬇ 엑셀 백업</button>
       <button class="btn green" id="addCons">+ 새 상담</button>
     </div></div>
+    <div class="list-hint">💡 고객(행)을 클릭하면 <b>상세 내용</b>을 볼 수 있어요. 수정은 상세 화면 아래 [수정]에서.</div>
     <div id="consBody" class="empty">불러오는 중…</div>`;
   await loadPromotions();
   CONS_CACHE = await loadConsultations();
@@ -251,7 +252,7 @@ function drawConsTable(){
   });
   const isAdmin=S.profile.role==="admin";
   const head=`<thead><tr><th>고객명</th><th>영업담당자</th><th>연락처</th><th>지역</th><th>주소</th><th>유입경로(홍보)</th><th>진행단계</th><th>실행이익률</th>${isAdmin?"<th>지사</th>":""}<th>상담일</th><th>다음예정</th><th></th></tr></thead>`;
-  const body = rows.length? rows.map(r=>`<tr>
+  const body = rows.length? rows.map(r=>`<tr data-detail="${r.id}" title="클릭하면 상세보기">
       <td class="cust" data-label="고객명">${esc(r.customer_name)}</td>
       <td data-label="영업담당자">${esc(r.rep_name||"-")}</td>
       <td data-label="연락처">${esc(r.phone||"-")}</td>
@@ -264,14 +265,14 @@ function drawConsTable(){
       <td data-label="상담일">${esc(r.consult_date||"")}</td>
       <td data-label="다음예정">${esc(r.next_date||"-")}</td>
       <td class="row-actions" style="white-space:nowrap">
-        <button data-edit="${r.id}">수정</button>
         <button class="del" data-del="${r.id}">삭제</button></td>
     </tr>`).join("") : `<tr><td colspan="13" class="empty">표시할 상담이 없습니다. [+ 새 상담]으로 기록을 추가하세요.</td></tr>`;
   el("consBody").innerHTML = `<div class="card-table mobilecards"><table>${head}<tbody>${body}</tbody></table></div>`;
-  el("consBody").querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>{
-    const row=CONS_CACHE.find(x=>String(x.id)===b.dataset.edit); openConsultForm(row);
+  el("consBody").querySelectorAll("tbody tr[data-detail]").forEach(tr=>{
+    tr.style.cursor="pointer";
+    tr.addEventListener("click",()=>{ const row=CONS_CACHE.find(x=>String(x.id)===tr.dataset.detail); if(row) openConsultDetail(row); });
   });
-  el("consBody").querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>delConsult(b.dataset.del));
+  el("consBody").querySelectorAll("[data-del]").forEach(b=>b.addEventListener("click",(e)=>{ e.stopPropagation(); delConsult(b.dataset.del); }));
 }
 
 function openConsultForm(row){
@@ -319,8 +320,51 @@ function openConsultForm(row){
       CONS_CACHE=await loadConsultations(); drawConsTable(); return true;
     });
 }
+// ---------- 상담 상세보기 (읽기 전용 → 수정/삭제/닫기) ----------
+function openConsultDetail(row){
+  const root=el("modalRoot");
+  const P=(row.promotions&&row.promotions.title)?row.promotions.title:"";
+  const items=[
+    ["영업담당자", row.rep_name],
+    ["연락처", row.phone],
+    ["지역", row.region],
+    ["주소", row.address],
+    ["고객 유형", row.customer_type],
+    ["유입경로(홍보)", P],
+    ["실행이익률", row.profit_rate!=null? row.profit_rate+"%" : ""],
+    ["담당 지사", branchName(row.branch_id)],
+    ["상담일", row.consult_date],
+    ["다음 예정일", row.next_date],
+  ];
+  const stageRow=`<div class="detail-row"><div class="dl">진행 단계</div><div class="dv">${stagePill(row.stage)}</div></div>`;
+  const grid=items.map(([l,v])=>`<div class="detail-row"><div class="dl">${esc(l)}</div><div class="dv">${v?esc(v):'<span class="dv-empty">-</span>'}</div></div>`).join("");
+  const blocks=[["상담 내용",row.content],["특이사항",row.note]].map(([l,v])=>
+    `<div class="detail-block"><div class="dl">${esc(l)}</div><div class="dv-long">${v?esc(v):'<span class="dv-empty">- 없음 -</span>'}</div></div>`).join("");
+  const created=(row.created_at||"").replace("T"," ").slice(0,16);
+  root.innerHTML=`<div class="modal-back"><div class="modal detail-modal">
+    <h2>${esc(row.customer_name)} <span class="detail-sub">· 상담 상세</span></h2>
+    <div class="detail-grid">${stageRow}${grid}</div>
+    ${blocks}
+    <div class="detail-created">등록일시 ${esc(created)}</div>
+    <div class="modal-actions">
+      <button class="btn red-out" id="dDel">삭제</button>
+      <span style="flex:1"></span>
+      <button class="btn" id="dClose">닫기</button>
+      <button class="btn green" id="dEdit">수정</button>
+    </div>
+  </div></div>`;
+  const close=()=>root.innerHTML="";
+  el("dClose").onclick=close;
+  root.querySelector(".modal-back").onclick=(e)=>{ if(e.target.classList.contains("modal-back")) close(); };
+  el("dEdit").onclick=()=>{ close(); openConsultForm(row); };
+  el("dDel").onclick=async()=>{ close(); await delConsult(row.id); };
+}
+
 async function delConsult(id){
-  if(!confirm("이 상담 기록을 삭제할까요?")) return;
+  const r=CONS_CACHE.find(x=>String(x.id)===String(id));
+  const name=r? r.customer_name : "";
+  const msg=`⚠️ 정말 삭제하시겠어요?\n\n"${name}" 고객의 상담 기록이 완전히 삭제되며, 되돌릴 수 없습니다.\n다시 한 번 확인하세요.\n\n삭제하려면 [확인]을 누르세요.`;
+  if(!confirm(msg)) return;
   const { error }=await sb.from("consultations").delete().eq("id",id);
   if(error){ toast("삭제 실패"); return; }
   toast("삭제되었습니다"); CONS_CACHE=await loadConsultations(); drawConsTable();
