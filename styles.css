@@ -146,6 +146,7 @@ td .cust{font-weight:700}
 .row-actions button.del{color:#c0392b}
 .rate{font-weight:800;color:var(--orange)}
 .empty{padding:40px;text-align:center;color:var(--lgray)}
+tbody tr.total-row td{font-weight:800;background:#eef4ee;border-top:2px solid var(--line)}
 
 /* 모달 */
 .modal-back{position:fixed;inset:0;background:rgba(20,35,20,.45);display:flex;align-items:flex-start;

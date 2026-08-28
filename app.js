@@ -55,6 +55,8 @@ function stagePill(s){ const c=STAGE_COLOR[s]||"#6e7678"; return `<span class="p
 function ymNow(){ const d=new Date(); return {y:d.getFullYear(), m:d.getMonth()}; }
 function isThisMonth(dateStr){ if(!dateStr) return false; const d=new Date(dateStr), n=ymNow(); return d.getFullYear()===n.y && d.getMonth()===n.m; }
 function branchName(id){ const b=S.branches.find(x=>x.id===id); return b?b.name:"-"; }
+function won(n){ n=Number(n)||0; return n.toLocaleString("ko-KR")+"원"; }
+function profitOf(r){ if(r.revenue==null||r.profit_rate==null) return null; return Math.round(Number(r.revenue)*Number(r.profit_rate)/100); }
 function roleLabel(){ if(S.profile.protected) return "Master"; if(S.profile.role==="admin") return "전체관리자"; if(S.profile.role==="video") return "영상팀"; return branchName(S.profile.branch_id); }
 
 /* ============================================================
@@ -210,8 +212,12 @@ async function renderDashboard(m){
     const stats=await loadPromoStats(); const dist=await loadPromoBranchStats();
     promoBlock = promoStatsTable(stats,dist,true);
   }
+  const _n=new Date();
+  const revBlock = sectionTitle("지사별 예상 매출·영업이익",
+    `${_n.getFullYear()}년 ${_n.getMonth()+1}월 / 올해 누계 · 상담 기재 금액 기준 (영업이익 = 예상매출 × 실행이익률)`)
+    + branchRevenueTable(rows);
   const repPerf = sectionTitle("영업자별 실적","영업담당자별 상담·계약 현황") + repPerformanceTable(rows);
-  el("dashBody").outerHTML = `<div id="dashBody">${kpis}${panels}${repPerf}${isAdmin?sectionTitle("최근 상담","최근 입력된 상담 이력")+recent:""}${promoBlock}</div>`;
+  el("dashBody").outerHTML = `<div id="dashBody">${kpis}${panels}${revBlock}${repPerf}${isAdmin?sectionTitle("최근 상담","최근 입력된 상담 이력")+recent:""}${promoBlock}</div>`;
   wireRecentActions();
 }
 
@@ -271,7 +277,7 @@ function drawConsTable(){
     return true;
   });
   const isAdmin=S.profile.role==="admin";
-  const head=`<thead><tr><th>고객명</th><th>영업담당자</th><th>연락처</th><th>지역</th><th>주소</th><th>유입경로(홍보)</th><th>진행단계</th><th>실행이익률</th>${isAdmin?"<th>지사</th>":""}<th>상담일</th><th>다음예정</th><th></th></tr></thead>`;
+  const head=`<thead><tr><th>고객명</th><th>영업담당자</th><th>연락처</th><th>지역</th><th>주소</th><th>유입경로(홍보)</th><th>진행단계</th><th>예상매출</th><th>실행이익률</th>${isAdmin?"<th>지사</th>":""}<th>상담일</th><th>다음예정</th><th></th></tr></thead>`;
   const body = rows.length? rows.map(r=>`<tr data-detail="${r.id}" title="클릭하면 상세보기">
       <td class="cust" data-label="고객명">${esc(r.customer_name)}</td>
       <td data-label="영업담당자">${esc(r.rep_name||"-")}</td>
@@ -280,13 +286,14 @@ function drawConsTable(){
       <td data-label="주소">${esc(r.address||"-")}</td>
       <td data-label="유입경로">${esc(r.promotions? r.promotions.title : "-")}</td>
       <td data-label="진행단계">${stagePill(r.stage)}</td>
+      <td data-label="예상매출">${r.revenue!=null? esc(won(r.revenue)) : "-"}</td>
       <td data-label="실행이익률">${r.profit_rate!=null? esc(r.profit_rate)+"%" : "-"}</td>
       ${isAdmin?`<td data-label="지사"><span class="badge">${esc(branchName(r.branch_id))}</span></td>`:""}
       <td data-label="상담일">${esc(r.consult_date||"")}</td>
       <td data-label="다음예정">${esc(r.next_date||"-")}</td>
       <td class="row-actions" style="white-space:nowrap">
         <button class="del" data-del="${r.id}">삭제</button></td>
-    </tr>`).join("") : `<tr><td colspan="13" class="empty">표시할 상담이 없습니다. [+ 새 상담]으로 기록을 추가하세요.</td></tr>`;
+    </tr>`).join("") : `<tr><td colspan="14" class="empty">표시할 상담이 없습니다. [+ 새 상담]으로 기록을 추가하세요.</td></tr>`;
   el("consBody").innerHTML = `<div class="card-table mobilecards"><table>${head}<tbody>${body}</tbody></table></div>`;
   el("consBody").querySelectorAll("tbody tr[data-detail]").forEach(tr=>{
     tr.style.cursor="pointer";
@@ -316,6 +323,7 @@ function openConsultForm(row){
       <div><label class="req">진행 단계</label><select id="f_stage" class="input">${STAGES.map(s=>`<option ${ (row?row.stage:"신규")===s?"selected":""}>${s}</option>`).join("")}</select></div>
       <div class="full"><label>상담 내용</label><textarea id="f_content" class="input" placeholder="상담한 내용을 짧게 메모">${row?esc(row.content||""):""}</textarea></div>
       <div class="full"><label>특이사항</label><textarea id="f_note" class="input" placeholder="특이사항·요청사항·주의점 등">${row?esc(row.note||""):""}</textarea></div>
+      <div><label>예상 매출액 (원)</label><input id="f_revenue" type="number" min="0" step="10000" class="input" value="${row&&row.revenue!=null?esc(row.revenue):""}" placeholder="예: 30000000"></div>
       <div><label>실행이익률 (%)</label><input id="f_profit" type="number" step="0.1" min="0" class="input" value="${row&&row.profit_rate!=null?esc(row.profit_rate):""}" placeholder="예: 12.5"></div>
       <div><label>다음 예정일</label><input id="f_next" type="date" class="input" value="${row&&row.next_date?esc(row.next_date):""}"></div>
       ${isAdmin?`<div><label>담당 지사</label><select id="f_branch" class="input">${branchOpts}</select></div>`:""}
@@ -326,6 +334,7 @@ function openConsultForm(row){
       const payload={
         customer_name:name, phone:val("f_phone"), region:val("f_region"),
         address:val("f_addr")||null, note:val("f_note")||null, rep_name:val("f_rep")||null,
+        revenue: el("f_revenue").value!==""? Number(el("f_revenue").value):null,
         profit_rate: el("f_profit").value!==""? Number(el("f_profit").value):null,
         customer_type:val("f_type")||null, promotion_id: el("f_promo").value? Number(el("f_promo").value):null,
         consult_date:el("f_date").value, content:val("f_content"), stage:el("f_stage").value,
@@ -351,7 +360,9 @@ function openConsultDetail(row){
     ["주소", row.address],
     ["고객 유형", row.customer_type],
     ["유입경로(홍보)", P],
+    ["예상 매출액", row.revenue!=null? won(row.revenue):""],
     ["실행이익률", row.profit_rate!=null? row.profit_rate+"%" : ""],
+    ["영업이익(실행이익)", profitOf(row)!=null? won(profitOf(row)):""],
     ["담당 지사", branchName(row.branch_id)],
     ["상담일", row.consult_date],
     ["다음 예정일", row.next_date],
@@ -398,7 +409,8 @@ function exportConsultationsCSV(){
     ["상담일", r=>r.consult_date], ["고객명", r=>r.customer_name], ["영업담당자", r=>r.rep_name], ["연락처", r=>r.phone],
     ["지역", r=>r.region], ["주소", r=>r.address], ["고객유형", r=>r.customer_type],
     ["유입경로(홍보)", r=> r.promotions? r.promotions.title : ""],
-    ["진행단계", r=>r.stage], ["실행이익률(%)", r=>r.profit_rate], ["다음예정일", r=>r.next_date],
+    ["진행단계", r=>r.stage], ["예상매출액(원)", r=>r.revenue], ["실행이익률(%)", r=>r.profit_rate],
+    ["영업이익(원)", r=>profitOf(r)], ["다음예정일", r=>r.next_date],
     ["담당지사", r=> branchName(r.branch_id)],
     ["상담내용", r=>r.content], ["특이사항", r=>r.note],
     ["등록일시", r=> (r.created_at||"").replace("T"," ").slice(0,16)],
@@ -559,6 +571,43 @@ function repPerformanceTable(rows){
   return `<div class="card-table mobilecards"><table>
     <thead><tr><th>영업담당자</th><th>상담</th><th>진행중</th><th>계약</th><th>전환율</th><th>평균 실행이익률</th></tr></thead>
     <tbody>${body}</tbody></table></div>`;
+}
+function branchRevenueTable(rows){
+  const isAdmin=S.profile.role==="admin";
+  const now=new Date(), Y=now.getFullYear(), M=now.getMonth();
+  const map={};
+  rows.forEach(r=>{
+    if(r.revenue==null) return;
+    const d=new Date(r.consult_date); if(isNaN(d)) return;
+    if(d.getFullYear()!==Y) return;
+    const rev=Number(r.revenue)||0, prof=profitOf(r)||0;
+    const o=map[r.branch_id]||(map[r.branch_id]={mRev:0,mPro:0,yRev:0,yPro:0});
+    o.yRev+=rev; o.yPro+=prof;
+    if(d.getMonth()===M){ o.mRev+=rev; o.mPro+=prof; }
+  });
+  const ids = isAdmin ? S.branches.map(b=>b.id) : [S.profile.branch_id];
+  const tot={mRev:0,mPro:0,yRev:0,yPro:0};
+  const rowsHtml = ids.map(id=>{
+    const o=map[id]||{mRev:0,mPro:0,yRev:0,yPro:0};
+    tot.mRev+=o.mRev; tot.mPro+=o.mPro; tot.yRev+=o.yRev; tot.yPro+=o.yPro;
+    return `<tr>
+      <td class="cust" data-label="지사">${esc(branchName(id))}</td>
+      <td data-label="월 예상매출">${won(o.mRev)}</td>
+      <td data-label="월 영업이익">${won(o.mPro)}</td>
+      <td data-label="연 예상매출">${won(o.yRev)}</td>
+      <td data-label="연 영업이익">${won(o.yPro)}</td>
+    </tr>`;
+  }).join("");
+  const totalRow = isAdmin ? `<tr class="total-row">
+      <td class="cust" data-label="지사">합계</td>
+      <td data-label="월 예상매출">${won(tot.mRev)}</td>
+      <td data-label="월 영업이익">${won(tot.mPro)}</td>
+      <td data-label="연 예상매출">${won(tot.yRev)}</td>
+      <td data-label="연 영업이익">${won(tot.yPro)}</td>
+    </tr>` : "";
+  return `<div class="card-table mobilecards"><table>
+    <thead><tr><th>지사</th><th>월 예상매출</th><th>월 영업이익</th><th>연 예상매출</th><th>연 영업이익</th></tr></thead>
+    <tbody>${rowsHtml}${totalRow}</tbody></table></div>`;
 }
 function wireRecentActions(){}
 
