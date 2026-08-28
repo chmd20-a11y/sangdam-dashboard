@@ -99,7 +99,7 @@ async function doLogout(){
    ============================================================ */
 function menuByRole(){
   const r=S.profile.role;
-  if(r==="admin")  return [["dashboard","대시보드"],["consultations","상담 목록"],["promo-stats","홍보 성과"],["promotions","홍보 관리"]];
+  if(r==="admin")  return [["dashboard","대시보드"],["consultations","상담 목록"],["promo-stats","홍보 성과"],["promotions","홍보 관리"],["accounts","계정 관리"]];
   if(r==="video")  return [["dashboard","대시보드"],["promo-stats","홍보 성과"],["promotions","홍보 관리"]];
   return [["dashboard","대시보드"],["consultations","상담 목록"]]; // branch
 }
@@ -167,6 +167,7 @@ async function render(){
   if(S.page==="consultations")  return renderConsultations(m);
   if(S.page==="promotions")     return renderPromotions(m);
   if(S.page==="promo-stats")    return renderPromoStats(m);
+  if(S.page==="accounts")       return renderAccounts(m);
 }
 
 /* ---------- 대시보드 ---------- */
@@ -467,6 +468,39 @@ async function renderPromoStats(m){
   await loadPromotions();
   const stats=await loadPromoStats(); const dist=await loadPromoBranchStats();
   el("psBody").outerHTML=`<div id="psBody">${promoStatsTable(stats,dist,false)}</div>`;
+}
+
+/* ---------- 계정 관리 (관리자 전용) ---------- */
+function loginIdOf(p){
+  if(p.role==="admin") return "관리자";
+  if(p.role==="video") return "영상팀";
+  return {1:"본사",2:"장흥",3:"영암",4:"평택",5:"파주"}[p.branch_id] || "-";
+}
+async function renderAccounts(m){
+  m.innerHTML=`<div class="page-head"><h1>계정 관리</h1></div>
+    <div class="banner">비밀번호를 분실한 계정을 <b>임시 비밀번호(solar1234!)</b>로 초기화합니다. 해당 사용자는 로그인 후 [🔑 비밀번호 변경]에서 바로 새 비번으로 바꾸세요.</div>
+    <div id="acctBody" class="empty">불러오는 중…</div>`;
+  const { data:profs, error } = await sb.from("profiles").select("id,role,branch_id,display_name");
+  if(error){ el("acctBody").innerHTML=`<div class="empty">계정을 불러오지 못했습니다.</div>`; return; }
+  const order={admin:0,branch:1,video:2};
+  const list=(profs||[]).slice().sort((a,b)=>(order[a.role]-order[b.role])||((a.branch_id||9)-(b.branch_id||9)));
+  const body=list.map(p=>`<tr>
+      <td class="cust" data-label="계정">${esc(p.display_name||"-")}</td>
+      <td data-label="로그인 아이디"><span class="badge">${esc(loginIdOf(p))}</span></td>
+      <td data-label="역할">${p.role==="admin"?"전체관리자":(p.role==="video"?"영상팀":"지사")}</td>
+      <td class="row-actions" data-label=" "><button class="btn red-out" data-reset="${p.id}" data-name="${esc(p.display_name||"")}">비밀번호 초기화</button></td>
+    </tr>`).join("");
+  el("acctBody").innerHTML=`<div class="card-table mobilecards"><table>
+    <thead><tr><th>계정</th><th>로그인 아이디</th><th>역할</th><th></th></tr></thead>
+    <tbody>${body}</tbody></table></div>`;
+  el("acctBody").querySelectorAll("[data-reset]").forEach(b=>b.onclick=()=>resetPw(b.dataset.reset,b.dataset.name));
+}
+async function resetPw(uid,name){
+  if(!confirm(`"${name}" 계정의 비밀번호를 임시비번(solar1234!)으로 초기화할까요?\n\n초기화 후 해당 사용자는 solar1234! 로 로그인한 뒤 새 비밀번호로 바꿔야 합니다.`)) return;
+  const { data, error }=await sb.functions.invoke("admin-reset-password",{ body:{ userId:uid } });
+  if(error){ toast("초기화 실패: 서버함수가 배포됐는지 확인하세요"); return; }
+  if(data && data.error){ toast("초기화 실패: "+data.error); return; }
+  toast(`✅ "${name}" 초기화 완료 — 임시비번: ${(data&&data.tempPassword)||"solar1234!"}`);
 }
 function promoStatsTable(stats,dist,withTitle){
   const head = withTitle? sectionTitle("영상팀 홍보 성과 피드백","홍보별 문의·계약 자동 집계","orange") : "";
