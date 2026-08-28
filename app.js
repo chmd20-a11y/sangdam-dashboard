@@ -55,7 +55,7 @@ function stagePill(s){ const c=STAGE_COLOR[s]||"#6e7678"; return `<span class="p
 function ymNow(){ const d=new Date(); return {y:d.getFullYear(), m:d.getMonth()}; }
 function isThisMonth(dateStr){ if(!dateStr) return false; const d=new Date(dateStr), n=ymNow(); return d.getFullYear()===n.y && d.getMonth()===n.m; }
 function branchName(id){ const b=S.branches.find(x=>x.id===id); return b?b.name:"-"; }
-function roleLabel(){ if(S.profile.role==="admin") return "전체관리자"; if(S.profile.role==="video") return "영상팀"; return branchName(S.profile.branch_id); }
+function roleLabel(){ if(S.profile.protected) return "Master"; if(S.profile.role==="admin") return "전체관리자"; if(S.profile.role==="video") return "영상팀"; return branchName(S.profile.branch_id); }
 
 /* ============================================================
    로그인
@@ -481,10 +481,10 @@ async function renderAccounts(m){
   m.innerHTML=`<div class="page-head"><h1>계정 관리</h1></div>
     <div class="banner">비밀번호를 분실한 계정을 <b>임시 비밀번호(solar1234!)</b>로 초기화합니다. 해당 사용자는 로그인 후 [🔑 비밀번호 변경]에서 바로 새 비번으로 바꾸세요.</div>
     <div id="acctBody" class="empty">불러오는 중…</div>`;
-  const { data:profs, error } = await sb.from("profiles").select("id,role,branch_id,display_name");
+  const { data:profs, error } = await sb.from("profiles").select("id,role,branch_id,display_name,protected");
   if(error){ el("acctBody").innerHTML=`<div class="empty">계정을 불러오지 못했습니다.</div>`; return; }
   const order={admin:0,branch:1,video:2};
-  const list=(profs||[]).slice().sort((a,b)=>(order[a.role]-order[b.role])||((a.branch_id||9)-(b.branch_id||9)));
+  const list=(profs||[]).filter(p=>!p.protected).slice().sort((a,b)=>(order[a.role]-order[b.role])||((a.branch_id||9)-(b.branch_id||9)));
   const body=list.map(p=>`<tr>
       <td class="cust" data-label="계정">${esc(p.display_name||"-")}</td>
       <td data-label="로그인 아이디"><span class="badge">${esc(loginIdOf(p))}</span></td>
