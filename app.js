@@ -25,6 +25,7 @@ const CHANNELS = ["유튜브","네이버","인스타","블로그","지역광고"
 // 기억하기 쉬운 아이디(지사 이름) → 실제 로그인 이메일 매핑
 const LOGIN_DOMAIN = "example.com";
 const LOGIN_MAP = {
+  "master":"master", "마스터":"master",
   "관리자":"admin", "admin":"admin", "본사":"hq", "본사(광주)":"hq", "광주":"hq", "hq":"hq",
   "장흥":"jangheung", "jangheung":"jangheung",
   "영암":"yeongam", "yeongam":"yeongam",
