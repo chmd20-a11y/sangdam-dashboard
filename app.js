@@ -109,8 +109,26 @@ function renderNav(){
     `<button class="nav-item ${key===S.page?"active":""}" data-page="${key}"><span class="ic"></span>${label}</button>`
   ).join("")
     + `<a class="manual-side" href="manual.html" target="_blank">📖 사용 안내</a>`
-    + `<a class="manual-side" href="install.html" target="_blank">📱 홈 화면에 추가</a>`;
+    + `<a class="manual-side" href="install.html" target="_blank">📱 홈 화면에 추가</a>`
+    + `<a class="manual-side" id="navPwChange">🔑 비밀번호 변경</a>`;
   el("sidebar").querySelectorAll(".nav-item").forEach(b=>b.onclick=()=>{ go(b.dataset.page); closeNav(); });
+  const pw=el("navPwChange"); if(pw) pw.onclick=()=>{ closeNav(); openPasswordChange(); };
+}
+function openPasswordChange(){
+  openModal("비밀번호 변경", `
+    <p style="color:var(--gray);font-size:13.5px;margin:0 0 14px">현재 로그인된 계정(<b>${esc(roleLabel())}</b>)의 비밀번호를 바꿉니다.</p>
+    <div class="form-grid">
+      <div class="full"><label class="req">새 비밀번호</label><input id="pw1" type="password" class="input" placeholder="6자 이상"></div>
+      <div class="full"><label class="req">새 비밀번호 확인</label><input id="pw2" type="password" class="input" placeholder="다시 입력"></div>
+    </div>`,
+    async ()=>{
+      const p1=el("pw1").value, p2=el("pw2").value;
+      if((p1||"").length<6){ toast("비밀번호는 6자 이상이어야 합니다"); return false; }
+      if(p1!==p2){ toast("두 비밀번호가 서로 다릅니다"); return false; }
+      const { error }=await sb.auth.updateUser({ password:p1 });
+      if(error){ toast("변경 실패: "+error.message); return false; }
+      toast("✅ 비밀번호가 변경되었습니다"); return true;
+    });
 }
 function toggleNav(){ const open=el("sidebar").classList.toggle("open"); el("navBackdrop").classList.toggle("show",open); }
 function closeNav(){ el("sidebar").classList.remove("open"); el("navBackdrop").classList.remove("show"); }
