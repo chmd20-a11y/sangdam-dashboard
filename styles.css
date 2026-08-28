@@ -123,6 +123,18 @@ select.chip{padding-right:10px}
 .bar-fill{height:100%;border-radius:7px;background:var(--green2)}
 .bar-row .val{text-align:right;font-weight:700;font-size:13.5px}
 
+/* 매출·실행이익 그래프 */
+.rev-toggle{display:flex;gap:8px;margin:0 0 14px}
+.rev-btn{padding:9px 16px;border:1px solid var(--line);background:#fff;border-radius:9px;font-weight:700;font-size:13.5px;color:var(--gray);cursor:pointer}
+.rev-btn.on{background:var(--green);color:#fff;border-color:var(--green)}
+.rev-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px;gap:10px}
+.rev-head h3{margin:0}
+.rev-total{font-size:18px;font-weight:800;white-space:nowrap}
+.bar-row.rev-bar{grid-template-columns:66px 1fr auto;margin:11px 0}
+.rev-bar .bar-track{height:20px}
+.rev-bar .name{font-size:14px}
+.rev-val{text-align:right;font-weight:800;font-size:14px;white-space:nowrap;padding-left:10px;min-width:54px}
+
 /* 섹션 제목 */
 .sec-title{display:flex;align-items:baseline;gap:10px;margin:6px 0 12px}
 .sec-title h3{margin:0;font-size:18px}

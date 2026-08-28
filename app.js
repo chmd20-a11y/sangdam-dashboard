@@ -212,12 +212,12 @@ async function renderDashboard(m){
     const stats=await loadPromoStats(); const dist=await loadPromoBranchStats();
     promoBlock = promoStatsTable(stats,dist,true);
   }
-  const _n=new Date();
-  const revBlock = sectionTitle("지사별 예상 매출·영업이익",
-    `${_n.getFullYear()}년 ${_n.getMonth()+1}월 / 올해 누계 · 상담 기재 금액 기준 (영업이익 = 예상매출 × 실행이익률)`)
-    + branchRevenueTable(rows);
+  const revBlock = sectionTitle("지사별 예상 매출·실행이익",
+    "지사별 · 상담 기재 금액 기준 (실행이익 = 예상매출 × 실행이익률)")
+    + branchRevenueSection(rows);
   const repPerf = sectionTitle("영업자별 실적","영업담당자별 상담·계약 현황") + repPerformanceTable(rows);
   el("dashBody").outerHTML = `<div id="dashBody">${kpis}${panels}${revBlock}${repPerf}${isAdmin?sectionTitle("최근 상담","최근 입력된 상담 이력")+recent:""}${promoBlock}</div>`;
+  drawRevChart();
   wireRecentActions();
 }
 
@@ -362,7 +362,7 @@ function openConsultDetail(row){
     ["유입경로(홍보)", P],
     ["예상 매출액", row.revenue!=null? won(row.revenue):""],
     ["실행이익률", row.profit_rate!=null? row.profit_rate+"%" : ""],
-    ["영업이익(실행이익)", profitOf(row)!=null? won(profitOf(row)):""],
+    ["실행이익", profitOf(row)!=null? won(profitOf(row)):""],
     ["담당 지사", branchName(row.branch_id)],
     ["상담일", row.consult_date],
     ["다음 예정일", row.next_date],
@@ -410,7 +410,7 @@ function exportConsultationsCSV(){
     ["지역", r=>r.region], ["주소", r=>r.address], ["고객유형", r=>r.customer_type],
     ["유입경로(홍보)", r=> r.promotions? r.promotions.title : ""],
     ["진행단계", r=>r.stage], ["예상매출액(원)", r=>r.revenue], ["실행이익률(%)", r=>r.profit_rate],
-    ["영업이익(원)", r=>profitOf(r)], ["다음예정일", r=>r.next_date],
+    ["실행이익(원)", r=>profitOf(r)], ["다음예정일", r=>r.next_date],
     ["담당지사", r=> branchName(r.branch_id)],
     ["상담내용", r=>r.content], ["특이사항", r=>r.note],
     ["등록일시", r=> (r.created_at||"").replace("T"," ").slice(0,16)],
@@ -572,42 +572,59 @@ function repPerformanceTable(rows){
     <thead><tr><th>영업담당자</th><th>상담</th><th>진행중</th><th>계약</th><th>전환율</th><th>평균 실행이익률</th></tr></thead>
     <tbody>${body}</tbody></table></div>`;
 }
-function branchRevenueTable(rows){
+let REV = null;
+function branchRevenueSection(rows){
   const isAdmin=S.profile.role==="admin";
   const now=new Date(), Y=now.getFullYear(), M=now.getMonth();
   const map={};
   rows.forEach(r=>{
     if(r.revenue==null) return;
-    const d=new Date(r.consult_date); if(isNaN(d)) return;
-    if(d.getFullYear()!==Y) return;
+    const d=new Date(r.consult_date); if(isNaN(d)||d.getFullYear()!==Y) return;
     const rev=Number(r.revenue)||0, prof=profitOf(r)||0;
     const o=map[r.branch_id]||(map[r.branch_id]={mRev:0,mPro:0,yRev:0,yPro:0});
     o.yRev+=rev; o.yPro+=prof;
     if(d.getMonth()===M){ o.mRev+=rev; o.mPro+=prof; }
   });
   const ids = isAdmin ? S.branches.map(b=>b.id) : [S.profile.branch_id];
-  const tot={mRev:0,mPro:0,yRev:0,yPro:0};
-  const rowsHtml = ids.map(id=>{
-    const o=map[id]||{mRev:0,mPro:0,yRev:0,yPro:0};
-    tot.mRev+=o.mRev; tot.mPro+=o.mPro; tot.yRev+=o.yRev; tot.yPro+=o.yPro;
-    return `<tr>
-      <td class="cust" data-label="지사">${esc(branchName(id))}</td>
-      <td data-label="월 예상매출">${won(o.mRev)}</td>
-      <td data-label="월 영업이익">${won(o.mPro)}</td>
-      <td data-label="연 예상매출">${won(o.yRev)}</td>
-      <td data-label="연 영업이익">${won(o.yPro)}</td>
-    </tr>`;
-  }).join("");
-  const totalRow = isAdmin ? `<tr class="total-row">
-      <td class="cust" data-label="지사">합계</td>
-      <td data-label="월 예상매출">${won(tot.mRev)}</td>
-      <td data-label="월 영업이익">${won(tot.mPro)}</td>
-      <td data-label="연 예상매출">${won(tot.yRev)}</td>
-      <td data-label="연 영업이익">${won(tot.yPro)}</td>
-    </tr>` : "";
-  return `<div class="card-table mobilecards"><table>
-    <thead><tr><th>지사</th><th>월 예상매출</th><th>월 영업이익</th><th>연 예상매출</th><th>연 영업이익</th></tr></thead>
-    <tbody>${rowsHtml}${totalRow}</tbody></table></div>`;
+  REV = { period:"month", Y, Mn:M+1,
+    branches: ids.map(id=>({ name:branchName(id), ...(map[id]||{mRev:0,mPro:0,yRev:0,yPro:0}) })) };
+  return `<div class="rev-toggle">
+      <button class="rev-btn on" data-p="month" onclick="toggleRevPeriod('month')">이번 달 (${M+1}월)</button>
+      <button class="rev-btn" data-p="year" onclick="toggleRevPeriod('year')">올해 (${Y})</button>
+    </div><div id="revChart"></div>`;
+}
+function toggleRevPeriod(p){
+  if(!REV) return; REV.period=p;
+  document.querySelectorAll(".rev-btn").forEach(b=>b.classList.toggle("on", b.dataset.p===p));
+  drawRevChart();
+}
+function revBar(name,val,max,color){
+  const w = val>0 ? Math.max(3,Math.round(val/max*100)) : 0;
+  return `<div class="bar-row rev-bar"><div class="name">${esc(name)}</div>
+    <div class="bar-track"><div class="bar-fill" style="width:${w}%;background:${color}"></div></div>
+    <div class="rev-val">${wonShort(val)}</div></div>`;
+}
+function drawRevChart(){
+  if(!REV || !el("revChart")) return;
+  const isMonth = REV.period==="month";
+  const rk = isMonth?"mRev":"yRev", pk = isMonth?"mPro":"yPro";
+  const bs = REV.branches;
+  const rMax = Math.max(1,...bs.map(b=>b[rk])), pMax = Math.max(1,...bs.map(b=>b[pk]));
+  const rTot = bs.reduce((a,b)=>a+b[rk],0), pTot = bs.reduce((a,b)=>a+b[pk],0);
+  const panel=(title,key,max,color,tot)=>`<div class="panel">
+      <div class="rev-head"><h3>${title}</h3><div class="rev-total" style="color:${color}">${won(tot)}</div></div>
+      ${bs.map(b=>revBar(b.name,b[key],max,color)).join("")}
+    </div>`;
+  el("revChart").innerHTML = `<div class="panels">
+      ${panel("예상 매출",rk,rMax,"#2e7d32",rTot)}
+      ${panel("실행이익",pk,pMax,"#e67e22",pTot)}
+    </div>`;
+}
+function wonShort(n){
+  n=Number(n)||0; if(n===0) return "0";
+  if(n>=1e8){ const v=n/1e8; return (v>=10?Math.round(v):Number(v.toFixed(1)))+"억"; }
+  if(n>=1e4){ return Math.round(n/1e4).toLocaleString("ko-KR")+"만"; }
+  return n.toLocaleString("ko-KR");
 }
 function wireRecentActions(){}
 
