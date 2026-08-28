@@ -241,7 +241,7 @@ function drawConsTable(){
     return true;
   });
   const isAdmin=S.profile.role==="admin";
-  const head=`<thead><tr><th>고객명</th><th>연락처</th><th>지역</th><th>주소</th><th>유입경로(홍보)</th><th>진행단계</th>${isAdmin?"<th>지사</th>":""}<th>상담일</th><th>다음예정</th><th></th></tr></thead>`;
+  const head=`<thead><tr><th>고객명</th><th>연락처</th><th>지역</th><th>주소</th><th>유입경로(홍보)</th><th>진행단계</th><th>실행이익률</th>${isAdmin?"<th>지사</th>":""}<th>상담일</th><th>다음예정</th><th></th></tr></thead>`;
   const body = rows.length? rows.map(r=>`<tr>
       <td class="cust">${esc(r.customer_name)}</td>
       <td>${esc(r.phone||"-")}</td>
@@ -249,13 +249,14 @@ function drawConsTable(){
       <td>${esc(r.address||"-")}</td>
       <td>${esc(r.promotions? r.promotions.title : "-")}</td>
       <td>${stagePill(r.stage)}</td>
+      <td>${r.profit_rate!=null? esc(r.profit_rate)+"%" : "-"}</td>
       ${isAdmin?`<td><span class="badge">${esc(branchName(r.branch_id))}</span></td>`:""}
       <td>${esc(r.consult_date||"")}</td>
       <td>${esc(r.next_date||"-")}</td>
       <td class="row-actions" style="white-space:nowrap">
         <button data-edit="${r.id}">수정</button>
         <button class="del" data-del="${r.id}">삭제</button></td>
-    </tr>`).join("") : `<tr><td colspan="11" class="empty">표시할 상담이 없습니다. [+ 새 상담]으로 기록을 추가하세요.</td></tr>`;
+    </tr>`).join("") : `<tr><td colspan="12" class="empty">표시할 상담이 없습니다. [+ 새 상담]으로 기록을 추가하세요.</td></tr>`;
   el("consBody").innerHTML = `<div class="card-table"><table>${head}<tbody>${body}</tbody></table></div>`;
   el("consBody").querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>{
     const row=CONS_CACHE.find(x=>String(x.id)===b.dataset.edit); openConsultForm(row);
@@ -281,6 +282,7 @@ function openConsultForm(row){
       <div><label class="req">진행 단계</label><select id="f_stage" class="input">${STAGES.map(s=>`<option ${ (row?row.stage:"신규")===s?"selected":""}>${s}</option>`).join("")}</select></div>
       <div class="full"><label>상담 내용</label><textarea id="f_content" class="input" placeholder="상담한 내용을 짧게 메모">${row?esc(row.content||""):""}</textarea></div>
       <div class="full"><label>특이사항</label><textarea id="f_note" class="input" placeholder="특이사항·요청사항·주의점 등">${row?esc(row.note||""):""}</textarea></div>
+      <div><label>실행이익률 (%)</label><input id="f_profit" type="number" step="0.1" min="0" class="input" value="${row&&row.profit_rate!=null?esc(row.profit_rate):""}" placeholder="예: 12.5"></div>
       <div><label>다음 예정일</label><input id="f_next" type="date" class="input" value="${row&&row.next_date?esc(row.next_date):""}"></div>
       ${isAdmin?`<div><label>담당 지사</label><select id="f_branch" class="input">${branchOpts}</select></div>`:""}
     </div>`,
@@ -290,6 +292,7 @@ function openConsultForm(row){
       const payload={
         customer_name:name, phone:val("f_phone"), region:val("f_region"),
         address:val("f_addr")||null, note:val("f_note")||null,
+        profit_rate: el("f_profit").value!==""? Number(el("f_profit").value):null,
         customer_type:val("f_type")||null, promotion_id: el("f_promo").value? Number(el("f_promo").value):null,
         consult_date:el("f_date").value, content:val("f_content"), stage:el("f_stage").value,
         next_date: el("f_next").value||null,
@@ -318,7 +321,7 @@ function exportConsultationsCSV(){
     ["상담일", r=>r.consult_date], ["고객명", r=>r.customer_name], ["연락처", r=>r.phone],
     ["지역", r=>r.region], ["주소", r=>r.address], ["고객유형", r=>r.customer_type],
     ["유입경로(홍보)", r=> r.promotions? r.promotions.title : ""],
-    ["진행단계", r=>r.stage], ["다음예정일", r=>r.next_date],
+    ["진행단계", r=>r.stage], ["실행이익률(%)", r=>r.profit_rate], ["다음예정일", r=>r.next_date],
     ["담당지사", r=> branchName(r.branch_id)],
     ["상담내용", r=>r.content], ["특이사항", r=>r.note],
     ["등록일시", r=> (r.created_at||"").replace("T"," ").slice(0,16)],
