@@ -308,6 +308,7 @@ function openConsultForm(row){
     S.promotions.map(p=>`<option value="${p.id}" ${row&&row.promotion_id===p.id?"selected":""}>${esc(p.title)}</option>`).join("");
   const branchOpts = S.branches.map(b=>`<option value="${b.id}" ${ (row?row.branch_id:S.profile.branch_id)===b.id?"selected":""}>${esc(b.name)}</option>`).join("");
   const typeOpts = ["","주택","축사","공장","토지","지붕","햇빛소득마을","영농형태양광","마을태양광","기타"].map(t=>`<option ${row&&row.customer_type===t?"selected":""}>${t}</option>`).join("");
+  const installOpts = ["","햇빛소득마을","영농형","일반부지","축사 및 건물","기타"].map(t=>`<option ${row&&row.install_type===t?"selected":""}>${t}</option>`).join("");
   const repNames = [...new Set((CONS_CACHE||[]).map(r=>r.rep_name).filter(Boolean))].sort();
   const repList = `<datalist id="repList">${repNames.map(n=>`<option value="${esc(n)}"></option>`).join("")}</datalist>`;
   openModal(`${isNew?"새 상담 기록":"상담 수정"}`, `${repList}
@@ -317,6 +318,7 @@ function openConsultForm(row){
       <div><label>연락처</label><input id="f_phone" class="input" value="${row?esc(row.phone||""):""}" placeholder="010-0000-0000"></div>
       <div><label>지역</label><input id="f_region" class="input" value="${row?esc(row.region||""):""}" placeholder="전남 장흥군"></div>
       <div><label>고객 유형</label><select id="f_type" class="input">${typeOpts}</select></div>
+      <div><label>설치유형</label><select id="f_install" class="input">${installOpts}</select></div>
       <div class="full"><label>주소</label><input id="f_addr" class="input" value="${row?esc(row.address||""):""}" placeholder="상세 주소 (예: 전남 장흥군 ○○면 ○○리 123-4)"></div>
       <div class="full"><label>유입경로 (어떤 홍보를 보고 왔는지)</label><select id="f_promo" class="input">${promoOpts}</select></div>
       <div><label class="req">상담일</label><input id="f_date" type="date" class="input" value="${row?esc(row.consult_date):new Date().toISOString().slice(0,10)}"></div>
@@ -336,7 +338,7 @@ function openConsultForm(row){
         address:val("f_addr")||null, note:val("f_note")||null, rep_name:val("f_rep")||null,
         revenue: numFromComma("f_revenue"),
         profit_rate: el("f_profit").value!==""? Number(el("f_profit").value):null,
-        customer_type:val("f_type")||null, promotion_id: el("f_promo").value? Number(el("f_promo").value):null,
+        customer_type:val("f_type")||null, install_type:val("f_install")||null, promotion_id: el("f_promo").value? Number(el("f_promo").value):null,
         consult_date:el("f_date").value, content:val("f_content"), stage:el("f_stage").value,
         next_date: el("f_next").value||null,
         branch_id: isAdmin? Number(el("f_branch").value) : S.profile.branch_id,
@@ -360,6 +362,7 @@ function openConsultDetail(row){
     ["지역", row.region],
     ["주소", row.address],
     ["고객 유형", row.customer_type],
+    ["설치유형", row.install_type],
     ["유입경로(홍보)", P],
     ["예상 매출액", row.revenue!=null? won(row.revenue):""],
     ["실행이익률", row.profit_rate!=null? row.profit_rate+"%" : ""],
@@ -408,7 +411,7 @@ function exportConsultationsCSV(){
   if(!rows.length){ toast("백업할 상담이 없습니다"); return; }
   const cols = [
     ["상담일", r=>r.consult_date], ["고객명", r=>r.customer_name], ["영업담당자", r=>r.rep_name], ["연락처", r=>r.phone],
-    ["지역", r=>r.region], ["주소", r=>r.address], ["고객유형", r=>r.customer_type],
+    ["지역", r=>r.region], ["주소", r=>r.address], ["고객유형", r=>r.customer_type], ["설치유형", r=>r.install_type],
     ["유입경로(홍보)", r=> r.promotions? r.promotions.title : ""],
     ["진행단계", r=>r.stage], ["예상매출액(원)", r=>r.revenue], ["실행이익률(%)", r=>r.profit_rate],
     ["실행이익(원)", r=>profitOf(r)], ["다음예정일", r=>r.next_date],
