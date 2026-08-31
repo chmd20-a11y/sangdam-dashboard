@@ -119,6 +119,8 @@ select.chip{padding-right:10px}
 .panel .desc{color:var(--lgray);font-size:12.5px;margin:0 0 12px}
 .bar-row{display:grid;grid-template-columns:64px 1fr 40px;align-items:center;gap:10px;margin:9px 0}
 .bar-row .name{font-weight:600;font-size:13.5px}
+.panel.wide-labels .bar-row{grid-template-columns:100px 1fr 40px}
+.panel.wide-labels .bar-row .name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12.5px}
 .bar-track{height:18px;background:var(--track);border-radius:7px;overflow:hidden}
 .bar-fill{height:100%;border-radius:7px;background:var(--green2)}
 .bar-row .val{text-align:right;font-weight:700;font-size:13.5px}

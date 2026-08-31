@@ -204,7 +204,12 @@ async function renderDashboard(m){
       ${byBranch.map(([n,v])=>barRow(n,v,brMax,"#2e7d32")).join("")}</div>` : "";
   const panelStage = `<div class="panel"><h3>진행 단계 분포</h3><p class="desc">현재 단계별 상담 수</p>
       ${stageDist.map(([n,v])=>barRow(n,v,stageMax,STAGE_COLOR[n])).join("")}</div>`;
-  const panels = `<div class="panels">${isAdmin? panelBranch+panelStage : panelStage+recentMini(rows)}</div>`;
+  const instTypes=["햇빛소득마을","영농형","일반부지","축사 및 건물","기타"];
+  const instDist=instTypes.map(t=>[t, rows.filter(r=>r.install_type===t).length]);
+  const instMax=Math.max(1,...instDist.map(x=>x[1]));
+  const panelInstall = `<div class="panel wide-labels"><h3>설치유형 분포</h3><p class="desc">설치유형별 상담 수</p>
+      ${instDist.map(([n,v])=>barRow(n,v,instMax,"#7860c8")).join("")}</div>`;
+  const panels = `<div class="panels">${isAdmin? panelBranch+panelStage+panelInstall : panelStage+panelInstall+recentMini(rows)}</div>`;
 
   const recent = recentTable(rows.slice(0,8));
   let promoBlock="";
