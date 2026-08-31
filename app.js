@@ -207,7 +207,7 @@ async function renderDashboard(m){
   const instTypes=["햇빛소득마을","영농형","일반부지","축사 및 건물","기타"];
   const instDist=instTypes.map(t=>[t, rows.filter(r=>r.install_type===t).length]);
   const instMax=Math.max(1,...instDist.map(x=>x[1]));
-  const panelInstall = `<div class="panel wide-labels"><h3>설치유형 분포</h3><p class="desc">설치유형별 상담 수</p>
+  const panelInstall = `<div class="panel wide-labels${isAdmin?' span2':''}"><h3>설치유형 분포</h3><p class="desc">설치유형별 상담 수</p>
       ${instDist.map(([n,v])=>barRow(n,v,instMax,"#7860c8")).join("")}</div>`;
   const panels = `<div class="panels">${isAdmin? panelBranch+panelStage+panelInstall : panelStage+panelInstall+recentMini(rows)}</div>`;
 
@@ -550,11 +550,12 @@ function recentTable(rows){
   const isAdmin=S.profile.role==="admin";
   const body=rows.length? rows.map(r=>`<tr>
       <td class="cust" data-label="고객명">${esc(r.customer_name)}</td><td data-label="영업담당자">${esc(r.rep_name||"-")}</td><td data-label="지역">${esc(r.region||"-")}</td>
+      <td data-label="설치유형">${esc(r.install_type||"-")}</td>
       <td data-label="유입경로">${esc(r.promotions?r.promotions.title:"-")}</td><td data-label="진행단계">${stagePill(r.stage)}</td>
       ${isAdmin?`<td data-label="담당지사"><span class="badge">${esc(branchName(r.branch_id))}</span></td>`:""}
       <td data-label="상담일">${esc(r.consult_date||"")}</td></tr>`).join("")
-    : `<tr><td colspan="7" class="empty">상담 기록이 없습니다.</td></tr>`;
-  return `<div class="card-table mobilecards"><table><thead><tr><th>고객명</th><th>영업담당자</th><th>지역</th><th>유입경로(홍보)</th><th>진행단계</th>${isAdmin?"<th>담당지사</th>":""}<th>상담일</th></tr></thead><tbody>${body}</tbody></table></div>`;
+    : `<tr><td colspan="8" class="empty">상담 기록이 없습니다.</td></tr>`;
+  return `<div class="card-table mobilecards"><table><thead><tr><th>고객명</th><th>영업담당자</th><th>지역</th><th>설치유형</th><th>유입경로(홍보)</th><th>진행단계</th>${isAdmin?"<th>담당지사</th>":""}<th>상담일</th></tr></thead><tbody>${body}</tbody></table></div>`;
 }
 function repPerformanceTable(rows){
   const isAdmin=S.profile.role==="admin";
