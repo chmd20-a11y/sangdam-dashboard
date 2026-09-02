@@ -282,13 +282,14 @@ function drawConsTable(){
     return true;
   });
   const isAdmin=S.profile.role==="admin";
-  const head=`<thead><tr><th>고객명</th><th>영업담당자</th><th>연락처</th><th>지역</th><th>주소</th><th>유입경로(홍보)</th><th>진행단계</th><th>예상매출</th><th>실행이익률</th>${isAdmin?"<th>지사</th>":""}<th>상담일</th><th>다음예정</th><th></th></tr></thead>`;
+  const head=`<thead><tr><th>고객명</th><th>영업담당자</th><th>연락처</th><th>지역</th><th>주소</th><th>상담내용</th><th>유입경로(홍보)</th><th>진행단계</th><th>예상매출</th><th>실행이익률</th>${isAdmin?"<th>지사</th>":""}<th>상담일</th><th>다음예정</th><th></th></tr></thead>`;
   const body = rows.length? rows.map(r=>`<tr data-detail="${r.id}" title="클릭하면 상세보기">
       <td class="cust" data-label="고객명">${esc(r.customer_name)}</td>
       <td data-label="영업담당자">${esc(r.rep_name||"-")}</td>
       <td data-label="연락처">${esc(r.phone||"-")}</td>
       <td data-label="지역">${esc(r.region||"-")}</td>
       <td data-label="주소">${esc(r.address||"-")}</td>
+      <td class="consum" data-label="상담내용"><div class="clamp2" title="${esc(r.content||"")}">${r.content? esc(r.content) : "-"}</div></td>
       <td data-label="유입경로">${esc(r.promotions? r.promotions.title : "-")}</td>
       <td data-label="진행단계">${stagePill(r.stage)}</td>
       <td data-label="예상매출">${r.revenue!=null? esc(won(r.revenue)) : "-"}</td>
@@ -298,7 +299,7 @@ function drawConsTable(){
       <td data-label="다음예정">${esc(r.next_date||"-")}</td>
       <td class="row-actions" style="white-space:nowrap">
         <button class="del" data-del="${r.id}">삭제</button></td>
-    </tr>`).join("") : `<tr><td colspan="14" class="empty">표시할 상담이 없습니다. [+ 새 상담]으로 기록을 추가하세요.</td></tr>`;
+    </tr>`).join("") : `<tr><td colspan="15" class="empty">표시할 상담이 없습니다. [+ 새 상담]으로 기록을 추가하세요.</td></tr>`;
   el("consBody").innerHTML = `<div class="card-table mobilecards"><table>${head}<tbody>${body}</tbody></table></div>`;
   el("consBody").querySelectorAll("tbody tr[data-detail]").forEach(tr=>{
     tr.style.cursor="pointer";
