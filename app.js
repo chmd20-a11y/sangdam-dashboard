@@ -273,6 +273,35 @@ async function renderConsultations(m){
   el("q").oninput=drawConsTable; el("fStage").onchange=drawConsTable; el("fRep").onchange=drawConsTable;
   drawConsTable();
 }
+// ---------- 상담내용 이력(일지) 헬퍼 ----------
+function consLog(r){
+  let a = Array.isArray(r.content_log) ? r.content_log.slice() : [];
+  if(!a.length && r.content && String(r.content).trim()){   // 안전장치: 예전 단일 content 편입
+    a = [{at:(r.consult_date||"")+"T00:00:00+09:00", body:r.content}];
+  }
+  a.sort((x,y)=>(+new Date(x.at)||0)-(+new Date(y.at)||0)); // 오래된→최신
+  return a;
+}
+function latestLog(r){ const a=consLog(r); return a.length? a[a.length-1] : null; }
+function consCell(r){
+  const L=latestLog(r);
+  if(!L) return '<td class="consum" data-label="상담내용"><span class="dv-empty">-</span></td>';
+  return `<td class="consum" data-label="상담내용"><div class="clamp2" title="${esc(L.body||"")}"><span class="logdate">${esc(fmtTs(L.at))}</span> ${esc(L.body||"")}</div></td>`;
+}
+function fmtTs(at){
+  if(!at) return "";
+  const d=new Date(at);
+  if(isNaN(d.getTime())) return String(at);
+  const p=new Intl.DateTimeFormat("ko-KR",{timeZone:"Asia/Seoul",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hour12:false}).formatToParts(d);
+  const g=t=>(p.find(x=>x.type===t)||{}).value||"";
+  return `${g("year")}-${g("month")}-${g("day")} ${g("hour")}:${g("minute")}`;
+}
+function logTimelineHtml(r){
+  const a=consLog(r);
+  if(!a.length) return '<div class="dv-empty">- 상담내용 기록이 없습니다 -</div>';
+  const disp=a.slice().reverse();   // 최신이 위
+  return disp.map((e,i)=>`<div class="logitem"><div class="logts">${esc(fmtTs(e.at))}${i===disp.length-1?' <span class="logfirst">(최초)</span>':''}</div><div class="logbody">${esc(e.body||"")}</div></div>`).join("");
+}
 function drawConsTable(){
   const q=(el("q").value||"").trim().toLowerCase(), fs=el("fStage").value, fr=el("fRep").value;
   let rows=CONS_CACHE.filter(r=>{
@@ -282,24 +311,22 @@ function drawConsTable(){
     return true;
   });
   const isAdmin=S.profile.role==="admin";
-  const head=`<thead><tr><th>고객명</th><th>영업담당자</th><th>연락처</th><th>지역</th><th>주소</th><th>상담내용</th><th>유입경로(홍보)</th><th>진행단계</th><th>예상매출</th><th>실행이익률</th>${isAdmin?"<th>지사</th>":""}<th>상담일</th><th>다음예정</th><th></th></tr></thead>`;
+  const head=`<thead><tr><th>고객명</th><th>영업담당자</th><th>연락처</th><th>지역</th><th>주소</th><th>상담내용</th><th>특이사항</th><th>진행단계</th>${isAdmin?"<th>지사</th>":""}<th>상담일</th><th>다음예정</th><th></th></tr></thead>`;
   const body = rows.length? rows.map(r=>`<tr data-detail="${r.id}" title="클릭하면 상세보기">
       <td class="cust" data-label="고객명">${esc(r.customer_name)}</td>
       <td data-label="영업담당자">${esc(r.rep_name||"-")}</td>
       <td data-label="연락처">${esc(r.phone||"-")}</td>
       <td data-label="지역">${esc(r.region||"-")}</td>
       <td data-label="주소">${esc(r.address||"-")}</td>
-      <td class="consum" data-label="상담내용"><div class="clamp2" title="${esc(r.content||"")}">${r.content? esc(r.content) : "-"}</div></td>
-      <td data-label="유입경로">${esc(r.promotions? r.promotions.title : "-")}</td>
+      ${consCell(r)}
+      <td class="consum" data-label="특이사항"><div class="clamp2" title="${esc(r.note||"")}">${r.note? esc(r.note) : "-"}</div></td>
       <td data-label="진행단계">${stagePill(r.stage)}</td>
-      <td data-label="예상매출">${r.revenue!=null? esc(won(r.revenue)) : "-"}</td>
-      <td data-label="실행이익률">${r.profit_rate!=null? esc(r.profit_rate)+"%" : "-"}</td>
       ${isAdmin?`<td data-label="지사"><span class="badge">${esc(branchName(r.branch_id))}</span></td>`:""}
       <td data-label="상담일">${esc(r.consult_date||"")}</td>
       <td data-label="다음예정">${esc(r.next_date||"-")}</td>
       <td class="row-actions" style="white-space:nowrap">
         <button class="del" data-del="${r.id}">삭제</button></td>
-    </tr>`).join("") : `<tr><td colspan="15" class="empty">표시할 상담이 없습니다. [+ 새 상담]으로 기록을 추가하세요.</td></tr>`;
+    </tr>`).join("") : `<tr><td colspan="13" class="empty">표시할 상담이 없습니다. [+ 새 상담]으로 기록을 추가하세요.</td></tr>`;
   el("consBody").innerHTML = `<div class="card-table mobilecards"><table>${head}<tbody>${body}</tbody></table></div>`;
   el("consBody").querySelectorAll("tbody tr[data-detail]").forEach(tr=>{
     tr.style.cursor="pointer";
@@ -329,7 +356,11 @@ function openConsultForm(row){
       <div class="full"><label>유입경로 (어떤 홍보를 보고 왔는지)</label><select id="f_promo" class="input">${promoOpts}</select></div>
       <div><label class="req">상담일</label><input id="f_date" type="date" class="input" value="${row?esc(row.consult_date):new Date().toISOString().slice(0,10)}"></div>
       <div><label class="req">진행 단계</label><select id="f_stage" class="input">${STAGES.map(s=>`<option ${ (row?row.stage:"신규")===s?"selected":""}>${s}</option>`).join("")}</select></div>
-      <div class="full"><label>상담 내용</label><textarea id="f_content" class="input" placeholder="상담한 내용을 짧게 메모">${row?esc(row.content||""):""}</textarea></div>
+      <div class="full">${isNew
+        ? `<label>상담 내용</label><textarea id="f_content" class="input" placeholder="상담한 내용을 메모 (작성 시 오늘 날짜·시간으로 기록됩니다)"></textarea>`
+        : `<label>상담 이력</label><div class="loghist">${logTimelineHtml(row)}</div>
+           <label style="margin-top:12px">상담내용 추가 <span class="hint">작성하면 오늘 날짜·시간으로 새 기록이 쌓입니다 (이전 내용은 유지)</span></label>
+           <textarea id="f_content" class="input" placeholder="이번 상담내용을 입력"></textarea>`}</div>
       <div class="full"><label>특이사항</label><textarea id="f_note" class="input" placeholder="특이사항·요청사항·주의점 등">${row?esc(row.note||""):""}</textarea></div>
       <div><label>예상 매출액 (원)</label><input id="f_revenue" type="text" inputmode="numeric" class="input" value="${row&&row.revenue!=null? Number(row.revenue).toLocaleString("ko-KR") : ""}" placeholder="예: 30,000,000"></div>
       <div><label>실행이익률 (%)</label><input id="f_profit" type="number" step="0.1" min="0" class="input" value="${row&&row.profit_rate!=null?esc(row.profit_rate):""}" placeholder="예: 12.5"></div>
@@ -345,10 +376,19 @@ function openConsultForm(row){
         revenue: numFromComma("f_revenue"),
         profit_rate: el("f_profit").value!==""? Number(el("f_profit").value):null,
         customer_type:val("f_type")||null, install_type:val("f_install")||null, promotion_id: el("f_promo").value? Number(el("f_promo").value):null,
-        consult_date:el("f_date").value, content:val("f_content"), stage:el("f_stage").value,
+        consult_date:el("f_date").value, stage:el("f_stage").value,
         next_date: el("f_next").value||null,
         branch_id: isAdmin? Number(el("f_branch").value) : S.profile.branch_id,
       };
+      // 상담내용 이력 처리: 새로 입력한 내용이 있으면 오늘 날짜·시간으로 한 줄 추가
+      const newBody=val("f_content");
+      let log = (row && Array.isArray(row.content_log)) ? row.content_log.slice() : [];
+      if(row && !log.length && row.content && String(row.content).trim()){   // 예전 단일 content 편입
+        log=[{at:(row.consult_date||"")+"T00:00:00+09:00", body:row.content}];
+      }
+      if(newBody){ log.push({at:new Date().toISOString(), body:newBody}); }
+      payload.content_log=log;
+      payload.content = log.length? log[log.length-1].body : null;   // 최신 내용 미러(백업·호환용)
       let res;
       if(isNew){ payload.created_by=S.profile.id; res=await sb.from("consultations").insert(payload); }
       else res=await sb.from("consultations").update(payload).eq("id",row.id);
@@ -379,8 +419,8 @@ function openConsultDetail(row){
   ];
   const stageRow=`<div class="detail-row"><div class="dl">진행 단계</div><div class="dv">${stagePill(row.stage)}</div></div>`;
   const grid=items.map(([l,v])=>`<div class="detail-row"><div class="dl">${esc(l)}</div><div class="dv">${v?esc(v):'<span class="dv-empty">-</span>'}</div></div>`).join("");
-  const blocks=[["상담 내용",row.content],["특이사항",row.note]].map(([l,v])=>
-    `<div class="detail-block"><div class="dl">${esc(l)}</div><div class="dv-long">${v?esc(v):'<span class="dv-empty">- 없음 -</span>'}</div></div>`).join("");
+  const blocks=`<div class="detail-block"><div class="dl">상담 이력</div><div class="log-timeline">${logTimelineHtml(row)}</div></div>`
+    +`<div class="detail-block"><div class="dl">특이사항</div><div class="dv-long">${row.note?esc(row.note):'<span class="dv-empty">- 없음 -</span>'}</div></div>`;
   const created=(row.created_at||"").replace("T"," ").slice(0,16);
   root.innerHTML=`<div class="modal-back"><div class="modal detail-modal">
     <h2>${esc(row.customer_name)} <span class="detail-sub">· 상담 상세</span></h2>
@@ -422,7 +462,7 @@ function exportConsultationsCSV(){
     ["진행단계", r=>r.stage], ["예상매출액(원)", r=>r.revenue], ["실행이익률(%)", r=>r.profit_rate],
     ["실행이익(원)", r=>profitOf(r)], ["다음예정일", r=>r.next_date],
     ["담당지사", r=> branchName(r.branch_id)],
-    ["상담내용", r=>r.content], ["특이사항", r=>r.note],
+    ["상담내용(이력)", r=> consLog(r).map(e=>`[${fmtTs(e.at)}] ${e.body||""}`).join("\n")], ["특이사항", r=>r.note],
     ["등록일시", r=> (r.created_at||"").replace("T"," ").slice(0,16)],
   ];
   const cell = v => `"${String(v==null?"":v).replace(/"/g,'""')}"`;

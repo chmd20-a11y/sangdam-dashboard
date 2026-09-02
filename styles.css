@@ -190,6 +190,19 @@ textarea.input{resize:vertical;min-height:70px}
 .detail-block .dv-long{background:#f6faf6;border:1px solid var(--line);border-radius:10px;padding:11px 13px;
   font-size:14.5px;white-space:pre-wrap;line-height:1.55;min-height:20px}
 .dv-empty{color:var(--lgray);font-weight:400}
+/* 상담내용 이력(일지) */
+.logdate{color:var(--lgray);font-weight:700;font-size:12px;margin-right:4px}
+.log-timeline{display:flex;flex-direction:column;gap:10px}
+.log-timeline .logitem{background:#f6faf6;border:1px solid var(--line);border-left:3px solid var(--green2);
+  border-radius:10px;padding:9px 12px}
+.logts{color:var(--green2);font-weight:700;font-size:12.5px;margin-bottom:3px}
+.logfirst{color:var(--lgray);font-weight:600}
+.logbody{font-size:14.5px;white-space:pre-wrap;line-height:1.55;word-break:break-word}
+.loghist{max-height:200px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;
+  background:#fafcfa;border:1px solid var(--line);border-radius:10px;padding:10px}
+.loghist .logitem{background:#fff;border:1px solid var(--line);border-left:3px solid var(--green2);
+  border-radius:8px;padding:8px 11px}
+.hint{color:var(--lgray);font-weight:400;font-size:12px}
 .detail-created{margin-top:14px;color:var(--lgray);font-size:12px;text-align:right}
 .btn.red-out{color:#c0392b;border-color:#e6b8b2}
 .btn.red-out:hover{background:#fdf0ee}
